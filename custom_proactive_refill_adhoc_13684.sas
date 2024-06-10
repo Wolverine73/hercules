@@ -1,0 +1,618 @@
+/***HEADER -------------------------------------------------------------------------
+ |  PROGRAM NAME:     CUSTOM_PROACTIVE_REFILL.SAS
+ |
+ |  PURPOSE:    TARGETS A CLIENT WHO WOULD LIKE A CUSTOM PROACTIVE MAILING.  THIS
+ |              IS A ONE TIME MAILING.
+ |              -- SELECT CLIENTS AND CPGS
+ |              -- SELECT NDCS (EXPANDED MAINTENANCE)
+ |              -- GET 45 DAY POS CLAIMS
+ |              -- DO NOT TARGET IF MAIL SERVICE WAS USED WITHIN LAST 90 DAYS
+ |              -- APPLY ONLY PARTICIPANTS WITH BOTH MAIL AND POS PBS
+ |              -- UNLIKE THE PROACTIVE REFILL NOTIFICATION PROGRAM, THIS PROGRAM
+ |                 DOES NOT CHECK FOR REFILL RESTRICTIONS
+ |
+ |  INPUT:      UDB TABLES ACCESSED BY MACROS ARE NOT LISTED
+ |                        &CLAIMSA..TCPG_PB_TRL_HIST,
+ |                        SUMMARY.TDRUG_COV_LMT_SUMM,
+ |                        &CLAIMSA..TBENEF_BENEFICIAR1,
+ |                        &CLAIMSA..TCLIENT1,
+ |                        &CLAIMSA..TDRUG1,
+ |                        &CLAIMSA.TRXCLM_BASE
+ |
+ |  OUTPUT:     STANDARD DATASETS IN /RESULTS AND /PENDING DIRECTORIES
+ |
+ |
+ |  HISTORY:    MARCH 2004 - PEGGY WONDERS
+ |              JAN 2005 - JOHN HOU
+ |                         ADDED CODES TO FOR RETAINING PLAN_CD, GROUP_CD FIELDS WHICH
+ |                         ARE NEEDED AS PART OF FILE LAYOUT
+ |			JAN, 2007	- KULADEEP M	  ADDED CLAIM END DATE IS NOT NULL WHEN
+ |										  FILL_DT BETWEEN CLAIM BEGIN DATE AND CLAIM END
+ |										  DATE.
+ |
+ |	        MAR  2007    - GREG DUDLEY HERCULES VERSION  1.0
+ |
+ |           07MAR2008 - N.WILLIAMS   - HERCULES VERSION  2.0.01
+ |                                      1. INITIAL CODE MIGRATION INTO DIMENSIONS
+ |                                         SOURCE SAFE CONTROL TOOL. 
+ |                                      2. UPDATE TO ADJUST BULKLOAD TO SQL PASS-THRU FOR TABLE LOADS.
+ |
+ |           APR. 22, 2008 - CARL STARKS - HERCULES VERSION 2.1.01
+ |
+ |           ADDED 3 MACRO CALLS TO GET RETAIL CLAIM DATA 
+ |           PULL_EDW_RETAIL_CLAIMS IS A NEW MACRO TO PULL CLAIMS FOR RECAP AND RXCLAIM 
+ |           PULL_QL_RETAIL_CLAIMS IS A NEW MACRO ALTHOUGH THE LOGIC WAS JUST PULLED 
+ |           FROM CUSTOM PROACTIVE REFILL AND MADE INTO A MACRO              
+ |           CALL NEW MACRO EDW2UNIX TO DOWNLOAD DATA TO UNIX THEN CALL               
+ |           NEW MACRO COMBINE_ADJ TO COMBINE ADJUDICATIONS AND DATA CONVERSION
+ |           ADDED LOGIC TO RUN SOME EXISTING MACROS TO RUN BASED ON ADJUDICATION 
+ |           ADDED LOGIC TO READ 3 NEW MACRO VARIABLE TO DETERMINE WHICH ADJUDICATION PROCESS THAT
+ |           WILL BE RAN (QL_ADJ, RX_ADJ AND RE_ADJ). THE QL_ADJ WILL RUN THE QL PROCESS WHOSE CODE
+ |           DID NOT CHANGE MUCH FROM THE OLE ELIGIBILITY CHECK MACRO. THE RX_ADJ WILL RUN RXCLAIM
+ |           AND RECAP WILL RUN RECAP THESE ARE 2 NEW PROCESSES ADDED 
+ |
+ | 			 - Hercules Version  2.1.2.01
+ +-------------------------------------------------------------------------------HEADER*/
+ 
+
+
+%LET ERR_FL=0;
+options sysparm='initiative_id=13684 phase_seq_nb=1';
+
+%set_sysmode(mode = prod);
+/*%set_sysmode;*/
+%include "/PRG/sas&sysmode.1/hercules/hercules_in.sas";
+options mlogic mprint;
+%UPDATE_TASK_TS(JOB_START_TS);
+
+LIBNAME SUMMARY DB2 DSN=&UDBSPRP SCHEMA=SUMMARY DEFER=YES;
+%GLOBAL POS_REVIEW_DAYS POS_REVIEW_DAYS2 CHK_DT CHK_DT2;
+%LET POS_REVIEW_DAYS2 = 180; 
+%LET ERR_FL=0;
+
+%LET PROGRAM_NAME=custom_proactive_refill;
+* ---> SET THE PARAMETERS FOR ERROR CHECKING;
+ PROC SQL NOPRINT;
+    SELECT QUOTE(TRIM(EMAIL)) INTO :PRIMARY_PROGRAMMER_EMAIL SEPARATED BY ' '
+    FROM ADM_LKP.ANALYTICS_USERS
+    WHERE UPCASE(QCP_ID) IN ("&USER");
+ QUIT;
+%ON_ERROR(ACTION=ABORT, EM_TO=&PRIMARY_PROGRAMMER_EMAIL,
+          EM_SUBJECT="HCE SUPPORT:  Notification of Abend",
+          EM_MSG="A problem was encountered.  See LOG file - &PROGRAM_NAME..log for Initiative ID &Initiative_ID");
+
+
+*SASDOC--------------------------------------------------------------------------
+| CALL %RESOLVE_CLIENT
+| RETRIEVE ALL CLIENT IDS THAT ARE INCLUDED IN THE MAILING.  IF A CLIENT IS
+| PARTIAL, THIS WILL BE HANDLED AFTER DETERMINING CURRENT ELIGIBILITY.
+|
+| C.J.S MAY2008 
+|     ADDED OUTPUT NAMES FOR EDW PROCESSING IN RESOLVE CLIENT
++------------------------------------------------------------------------SASDOC*;
+
+
+%RESOLVE_CLIENT(TBL_NAME_OUT=&DB2_TMP..&TABLE_PREFIX._CLT_CPG_QL,
+                TBL_NAME_OUT_RX=&ORA_TMP..&TABLE_PREFIX._CLT_CPG_RX,
+                TBL_NAME_OUT_RE=&ORA_TMP..&TABLE_PREFIX._CLT_CPG_RE) ;
+
+%MACRO LOAD_CLIENT;
+%IF &QL_ADJ = 1 %THEN %DO;
+   %GLOBAL CLIENT_IDS;
+      PROC SQL NOPRINT;
+       SELECT DISTINCT CLIENT_ID INTO :CLIENT_IDS SEPARATED BY ','
+       FROM &DB2_TMP..&TABLE_PREFIX._CLT_CPG_QL;
+    QUIT;
+    %PUT NOTE:	CLIENT_IDS = &CLIENT_IDS;
+%END;
+%MEND LOAD_CLIENT;
+
+%LOAD_CLIENT;
+
+*SASDOC--------------------------------------------------------------------------
+| CALL %GET_NDC TO DETERMINE THE MAINTENANCE NDCS
++------------------------------------------------------------------------SASDOC*;
+
+%GET_NDC(DRUG_NDC_TBL=&DB2_TMP..&TABLE_PREFIX._NDC_QL,
+         DRUG_NDC_TBL_RX=&ORA_TMP..&TABLE_PREFIX._NDC_RX,
+         DRUG_NDC_TBL_RE=&ORA_TMP..&TABLE_PREFIX._NDC_RE
+        );
+*SASDOC--------------------------------------------------------------------------
+| CREATE POS_REVIEW_DAYS MACRO VARIABLE BY READING ACT_NBR_OF_DAYS
+| FROM HERCULES.TPHASE_RVR_FILE TABLE 
+|		01OCT2008 - K.MITTAPALLI- HERCULES VERSION  2.1.0.2
++------------------------------------------------------------------------SASDOC*;
+PROC SQL;
+SELECT ACT_NBR_OF_DAYS INTO : POS_REVIEW_DAYS
+  FROM &HERCULES..TPHASE_RVR_FILE
+ WHERE INITIATIVE_ID = &INITIATIVE_ID
+   AND PHASE_SEQ_NB  = &PHASE_SEQ_NB
+ ;QUIT;
+
+*SASDOC--------------------------------------------------------------------------
+| CREATE MACRO VARIABLES FOR DATES.
+|		01OCT2008 - K.MITTAPALLI- HERCULES VERSION  2.1.0.2
++------------------------------------------------------------------------SASDOC*;
+
+  DATA _NULL_;
+  IF &POS_REVIEW_DAYS. >= &POS_REVIEW_DAYS2. THEN DO;
+/*  	CALL SYMPUT('CLAIMS_BGN_DT',PUT((TODAY()-&POS_REVIEW_DAYS), YYMMDD10.));*/
+	CALL SYMPUT('CLM_BEGIN_DT',PUT((TODAY()-&POS_REVIEW_DAYS), YYMMDD10.));
+	CALL SYMPUT('CHK_DT',  "'"||PUT(TODAY()-&POS_REVIEW_DAYS, YYMMDD10.)||"'");
+  END;
+	  ELSE IF &POS_REVIEW_DAYS. < &POS_REVIEW_DAYS2. THEN DO;
+/*	  	CALL SYMPUT('CLAIMS_BGN_DT',PUT((TODAY()-&POS_REVIEW_DAYS2), YYMMDD10.));*/
+	  	CALL SYMPUT('CLM_BEGIN_DT',PUT((TODAY()-&POS_REVIEW_DAYS2), YYMMDD10.));
+		CALL SYMPUT('CHK_DT',  "'"||PUT(TODAY()-&POS_REVIEW_DAYS2, YYMMDD10.)||"'");
+	  END;
+/*  CALL SYMPUT('CLAIMS_END_DT',PUT(TODAY(),YYMMDD10.));  */
+  CALL SYMPUT('CLM_END_DT',PUT(TODAY(),YYMMDD10.));  
+  CALL SYMPUT('CHK_DT2',  "'"||PUT(TODAY()-&POS_REVIEW_DAYS2, YYMMDD10.)||"'");
+  RUN;
+*SASDOC--------------------------------------------------------------------------
+| CALL CLAIMS_PULL_EDW MACRO IN ORDER TO PULL CLAIMS INFORMATION FROM EDW.
+|		01OCT2008 - K.MITTAPALLI- HERCULES VERSION  2.1.0.2
++------------------------------------------------------------------------SASDOC*;
+%PUT _user_;
+
+%CLAIMS_PULL_EDW(DRUG_NDC_TABLE_RX = &ORA_TMP..&TABLE_PREFIX._NDC_RX, 
+                 DRUG_NDC_TABLE_RE = &ORA_TMP..&TABLE_PREFIX._NDC_RE, 
+                 RESOLVE_CLIENT_TABLE_RX = &ORA_TMP..&TABLE_PREFIX._CLT_CPG_RX,
+                 RESOLVE_CLIENT_TABLE_RE = &ORA_TMP..&TABLE_PREFIX._CLT_CPG_RE
+                 );
+
+%MACRO QL_PROCESS;
+*SASDOC --------------------------------------------------------------------
+|
+|  IDENTIFY THE RETAIL MAINTENANCE QL CLAIMS DURING THE LAST &POS_REVIEW_DAYS
+|  WHO HAVE NOT FILLED ANY SCRIPTS AT MAIL DURING THE LAST 90 DAYS.
+| MAY2008 C.J.S
+| LOGIC ADDED SO THAT THIS MACRO WILL ONLY RUN IF QL WAS SELECTED TO RUN FROM
+| JAVA SCREENS
++--------------------------------------------------------------------SASDOC*;
+
+%PULL_QL_RETAIL_CLAIMS(TBL_NAME_IN1=&DB2_TMP..&TABLE_PREFIX._CLT_CPG_QL,
+                       TBL_NAME_IN=&DB2_TMP..&TABLE_PREFIX._NDC_QL, 
+                       TBL_NAME_OUT=&DB2_TMP..&TABLE_PREFIX._CLAIMS_QL,
+                        ADJ_ENGINE='QL',CLIENT_IDS = &CLIENT_IDS);
+
+     %DROP_DB2_TABLE(TBL_NAME=&DB2_TMP..&TABLE_PREFIX._CPG_PB);
+
+      PROC SQL;
+        CONNECT TO DB2 AS DB2(DSN=&UDBSPRP);
+          EXECUTE(CREATE TABLE &DB2_TMP..&TABLE_PREFIX._CPG_PB
+                 (
+		       CLT_PLAN_GROUP_ID	INTEGER			NOT NULL,
+		       CLIENT_ID	        INTEGER			NOT NULL,
+		       PLAN_CD	        	CHARACTER(8) 	NOT NULL,
+		       PLAN_EXTENSION_CD	CHARACTER(8) 	NOT NULL,
+		       GROUP_CD	        	CHARACTER(15)	NOT NULL,
+		       GROUP_EXTENSION_CD	CHARACTER(5)	NOT NULL,
+		       BLG_REPORTING_CD		CHARACTER(15)	NOT NULL,
+		       PLAN_GROUP_NM	    CHARACTER(30)	NOT NULL,        
+		       POS_PB               INTEGER,
+		       MAIL_PB              INTEGER		  
+                  ) NOT LOGGED INITIALLY) BY DB2;
+        DISCONNECT FROM DB2;
+      QUIT;
+ 
+      PROC SQL;
+         CONNECT TO DB2 AS DB2(DSN=&UDBSPRP AUTOCOMMIT=NO);
+          EXECUTE(ALTER TABLE &db2_tmp..&TABLE_PREFIX._CPG_PB 
+                  ACTIVATE NOT LOGGED INITIALLY  ) BY DB2;
+
+          EXECUTE(INSERT INTO &db2_tmp..&TABLE_PREFIX._CPG_PB 
+                  SELECT E.CLT_PLAN_GROUP_ID,E.CLIENT_ID, 
+                         E.PLAN_CD, E.PLAN_EXTENSION_CD,
+                         E.GROUP_CD, E.GROUP_EXTENSION_CD,
+                         E.BLG_REPORTING_CD,
+                         E.PLAN_GROUP_NM,
+                       MAX(CASE
+                           WHEN A.DELIVERY_SYSTEM_CD = 3 THEN PB_ID
+                            ELSE 0
+                        END) AS POS_PB,
+                        MAX(CASE
+                           WHEN A.DELIVERY_SYSTEM_CD = 2 THEN PB_ID
+                           ELSE 0
+                        END) AS MAIL_PB
+                   FROM &CLAIMSA..TCPG_PB_TRL_HIST  A,
+                        &DB2_TMP..&TABLE_PREFIX._CLT_CPG_QL D,
+                        &CLAIMSA..TCPGRP_CLT_PLN_GR1  E
+                   WHERE D.CLT_PLAN_GROUP_ID = A.CLT_PLAN_GROUP_ID
+                      AND   D.CLT_PLAN_GROUP_ID = E.CLT_PLAN_GROUP_ID
+                      AND   A.EXP_DT > CURRENT DATE
+                      AND   A.EFF_DT < CURRENT DATE
+                      AND   A.DELIVERY_SYSTEM_CD IN (2,3)
+                  GROUP BY E.CLT_PLAN_GROUP_ID,E.CLIENT_ID,
+                      E.PLAN_CD, E.PLAN_EXTENSION_CD,
+                      E.GROUP_CD, E.GROUP_EXTENSION_CD,
+                      E.BLG_REPORTING_CD,
+                      E.PLAN_GROUP_NM
+                  HAVING COUNT(DISTINCT A.DELIVERY_SYSTEM_CD)=2             
+             )BY DB2;
+        DISCONNECT FROM DB2;
+    QUIT;
+  %SET_ERROR_FL;
+  %ON_ERROR(ACTION=ABORT, EM_TO=&PRIMARY_PROGRAMMER_EMAIL,
+          EM_SUBJECT="HCE SUPPORT:  Notification of Abend",
+          EM_MSG="A problem was encountered.  See LOG file - &PROGRAM_NAME..log for Initiative ID &Initiative_ID");
+
+   %RUNSTATS(TBL_NAME=&DB2_TMP..&TABLE_PREFIX._CPG_PB);
+
+*SASDOC--------------------------------------------------------------------------
+| CALL %GET_MOC_PHONE
+| ADD THE MAIL ORDER PHARMACY AND CUSTOMER SERVICE PHONE TO THE CPG FILE
+|C.J.S  APR2008
+| ADDED ADJ LOGIC SO MACRO WILL RUN FOR QL ONLY
++------------------------------------------------------------------------SASDOC*;
+    %GET_MOC_CSPHONE(TBL_NAME_IN=&DB2_TMP..&TABLE_PREFIX._CPG_PB,
+                  TBL_NAME_OUT=&DB2_TMP..&TABLE_PREFIX._CPG_MOC);
+%MEND QL_PROCESS;
+
+*SASDOC --------------------------------------------------------------------
+|   C.J.S MAY2008
+|  IDENTIFY THE RETAIL MAINTENANCE RX/RE CLAIMS DURING THE LAST &POS_REVIEW_DAYS
+|  WHO HAVE NOT FILLED ANY SCRIPTS AT MAIL DURING THE LAST 90 DAYS.
+| MAY2008 C.J.S
+| LOGIC ADDED SO THAT THIS MACRO WILL ONLY RUN IF RX WAS SELECTED TO RUN FROM
+| JAVA SCREENS
++--------------------------------------------------------------------SASDOC*;
+       	
+%MACRO RX_RE_PROCESS(TBL_NM_RX_RE,INPT_TBL_RX_RE,EDW_ADJ,CLAIMS_TBL,
+					 TBL_NM_RX_RE2,MODULE2);
+
+*SASDOC --------------------------------------------------------------------
+|   C.J.S MAY2008
+|   CALL DELIVERY_SYS_CHECK MACRO TO RESOLVE IF ANY OF THE DELIVERY SYSTEMS 
+|	SHOULD BE EXCLUDED FROM THE INITIATIVE.  IF SO, FORM A STRING THAT WILL 
+|	BE INSERTED INTO THE SQL THAT QUERIES CLAIMS.
++--------------------------------------------------------------------SASDOC*;
+
+%INCLUDE "/PRG/sas&sysmode.1/hercules/macros/delivery_sys_check.sas";
+*SASDOC --------------------------------------------------------------------
+|   C.J.S MAY2008
+|  THIS PROC AQL STEP DOES A JOIN AGAINST VARIOUS TABLES IN ORDER TO PULL
+|  THE RETAIL CLAIMS
++--------------------------------------------------------------------SASDOC*;
+
+PROC SQL;
+CONNECT TO ORACLE(PATH=&GOLD);
+CREATE TABLE &ORA_TMP..RETAIL_USERS_&MODULE2._&INITIATIVE_ID. AS
+SELECT * FROM CONNECTION TO ORACLE 
+(
+ SELECT DISTINCT
+CLAIM.MBR_GID				AS MBR_GID,
+CLAIM.PAYER_ID				AS PAYER_ID,
+CLAIM.ALGN_LVL_GID_KEY		AS ALGN_LVL_GID_KEY,
+CLAIM.PT_BENEFICIARY_ID 	AS PT_BENEFICIARY_ID,
+CLAIM.MBR_ID				AS MBR_ID,
+CLAIM.CDH_BENEFICIARY_ID 	AS CDH_BENEFICIARY_ID,
+CLAIM.CLIENT_ID				AS CLIENT_ID,
+CLAIM.CLIENT_LEVEL_1 		AS CLIENT_LEVEL_1,
+CLAIM.CLIENT_LEVEL_2 		AS CLIENT_LEVEL_2,
+CLAIM.CLIENT_LEVEL_3 		AS CLIENT_LEVEL_3,
+MAX(CLAIM.ADJ_ENGINE)		AS ADJ_ENGINE,
+CLAIM.LAST_FILL_DT  		AS LAST_FILL_DT,
+MAX(0) 						AS LTR_RULE_SEQ_NB,
+MAX(CLAIM.REFILL_FILL_QY) 	AS REFILL_FILL_QY,
+MAX(CLAIM.DRUG_NDC_ID) 		AS DRUG_NDC_ID,
+MAX(CLAIM.NHU_TYPE_CD) 		AS NHU_TYPE_CD
+ FROM &CLAIMS_TBL. CLAIM
+WHERE (CLAIM.DSPND_DATE BETWEEN TO_DATE(&CHK_DT,'yyyy-mm-dd') AND SYSDATE)	  
+	  &RETAIL_DELVRY_CD.
+GROUP BY 
+CLAIM.MBR_GID,
+CLAIM.PAYER_ID, 
+CLAIM.ALGN_LVL_GID_KEY,
+CLAIM.PT_BENEFICIARY_ID,
+CLAIM.MBR_ID,
+CLAIM.CDH_BENEFICIARY_ID,
+CLAIM.CLIENT_ID,
+CLAIM.CLIENT_LEVEL_1,
+CLAIM.CLIENT_LEVEL_2,
+CLAIM.CLIENT_LEVEL_3,
+CLAIM.LAST_FILL_DT
+HAVING SUM(CLAIM.RX_COUNT_QY) > 0 );
+DISCONNECT FROM ORACLE;
+QUIT;
+
+
+PROC SQL;
+	CONNECT TO ORACLE(PATH=&GOLD);
+	CREATE TABLE &ORA_TMP..MAIL_USERS_&MODULE2._&INITIATIVE_ID. AS
+    SELECT * FROM CONNECTION TO ORACLE
+	(
+		SELECT DISTINCT PT_BENEFICIARY_ID
+		FROM &CLAIMS_TBL. CLAIM
+		WHERE (DSPND_DATE BETWEEN TO_DATE(&CHK_DT2,'yyyy-mm-dd') AND SYSDATE)		
+		&MAIL_DELVRY_CD.
+		ORDER BY PT_BENEFICIARY_ID
+
+	);
+	DISCONNECT FROM ORACLE;
+QUIT;
+
+
+%DROP_ORACLE_TABLE(TBL_NAME=&TBL_NM_RX_RE);
+
+PROC SQL;
+	CREATE TABLE &TBL_NM_RX_RE. AS
+	SELECT DISTINCT A.*
+	FROM &ORA_TMP..RETAIL_USERS_&MODULE2._&INITIATIVE_ID. A
+	LEFT JOIN
+		 &ORA_TMP..MAIL_USERS_&MODULE2._&INITIATIVE_ID. B
+	ON A.PT_BENEFICIARY_ID = B.PT_BENEFICIARY_ID
+  WHERE B.PT_BENEFICIARY_ID IS NULL;
+ QUIT;
+
+
+%DROP_ORACLE_TABLE(TBL_NAME=&ORA_TMP..RETAIL_USERS_&MODULE2._&INITIATIVE_ID.);
+%DROP_ORACLE_TABLE(TBL_NAME=&ORA_TMP..MAIL_USERS_&MODULE2._&INITIATIVE_ID.);
+
+*SASDOC--------------------------------------------------------------------------
+| CALL %GET_MOC_PHONE
+| ADD THE MAIL ORDER PHARMACY AND CUSTOMER SERVICE PHONE TO THE CPG FILE
+|C.J.S  APR2008
+| CHANGED INPUT AND OUTPUT NAMES AND ADDED ADJ LOGIC SO MACRO WILL RUN FOR RX/RE
++------------------------------------------------------------------------SASDOC*;
+
+    %GET_MOC_CSPHONE(MODULE=&MODULE2.,
+					 TBL_NAME_IN =&TBL_NM_RX_RE., 
+                     TBL_NAME_OUT=&TBL_NM_RX_RE2.);
+
+%MEND RX_RE_PROCESS;
+%MACRO PROCESS;
+%IF &RX_ADJ EQ 1 %THEN 
+%RX_RE_PROCESS(&ORA_TMP..&TABLE_PREFIX.PT_CLAIMS_GROUP_RX
+			  ,&ORA_TMP..&TABLE_PREFIX._CLT_CPG_RX
+			  ,2
+			  ,&ORA_TMP..CLAIMS_PULL_&INITIATIVE_ID._RX
+			  ,&ORA_TMP..&TABLE_PREFIX.PT_CLAIM_MOC_RX
+			  ,RX);
+%IF &RE_ADJ EQ 1 %THEN 
+%RX_RE_PROCESS(&ORA_TMP..&TABLE_PREFIX.PT_CLAIMS_GROUP_RE
+			  ,&ORA_TMP..&TABLE_PREFIX._CLT_CPG_RE
+			  ,3
+			  ,&ORA_TMP..CLAIMS_PULL_&INITIATIVE_ID._RE
+			  ,&ORA_TMP..&TABLE_PREFIX.PT_CLAIM_MOC_RE
+			  ,RE);
+ %IF &QL_ADJ EQ 1 %THEN %QL_PROCESS;
+%MEND PROCESS;
+%PROCESS;
+
+*SASDOC-------------------------------------------------------------------------
+| DETERMINE ELIGIBILITY FOR THE CARDHOLDLER AS WELL AS PARTICIPANT (IF
+| AVAILABLE).
+|C.J.S  APR2008
+| PASS NEW INPUT AND OUTPUT NAMES FOR RECAP AND RXCLAIM
++-----------------------------------------------------------------------SASDOC*;
+
+ %ELIGIBILITY_CHECK(TBL_NAME_IN=&DB2_TMP..&TABLE_PREFIX._CLAIMS_QL,
+                   TBL_NAME_IN_RX=&ORA_TMP..&TABLE_PREFIX.PT_CLAIM_MOC_RX, 
+                   TBL_NAME_IN_RE=&ORA_TMP..&TABLE_PREFIX.PT_CLAIM_MOC_RE, 
+                   TBL_NAME_OUT=&DB2_TMP..&TABLE_PREFIX._CPG_ELIG_QL,
+                   TBL_NAME_RX_OUT2=&ORA_TMP..&TABLE_PREFIX._CPG_ELIG_RX,
+                   TBL_NAME_RE_OUT2=&ORA_TMP..&TABLE_PREFIX._CPG_ELIG_RE,
+                   CLAIMSA=&CLAIMSA);
+    
+*SASDOC ------------------------------------------------------------------------
+ | FIND THE LATEST BILLING_END_MONTH FOR THE SUMMARY TABLES. USE COPAY SUMMARY
+ | FOR FASTEST RESULTS.
+ | C.J.S MAY2008
+ | ADDED CODE SO THAT THIS ONLY RUN FOR QL
+ +-----------------------------------------------------------------------SASDOC*;
+
+%MACRO REFILL_DATA;
+%IF &QL_ADJ = 1 %THEN %DO;
+
+     PROC SQL NOPRINT;
+       SELECT MAX(BILLING_END_MONTH)
+             INTO :MAX_COPAY_DATE
+       FROM SUMMARY.TCOPAY_PLAN_SUMM;
+     QUIT;
+
+*SASDOC -----------------------------------------------------------------------------
+ |
+ |   USE SUMMARY.TDRUG_COV_LMT_SUMM TO DELETE DRUG CATEGORIES NOT BEING COVERED WHILE
+ |   CALCULATING THE REFILL_FILL_QY (SUBTRACT 1 FROM ANNUAL_REFILL_QY).  KEEP ONLY
+ |   THE ELIGIBLE CPGS, PARTICIPANTS
+ |
+ |     NOTE: REFILL_FILL_QY OR ANNUAL_FILL_QY MAY HAVE VALUES LIKE '9999' WHICH MEANS
+ |           NO REFILL LIMIT AND SHOULD BE TREATED SAME AS NULL
+ |
+ + ----------------------------------------------------------------------------SASDOC*;
+
+
+     %DROP_DB2_TABLE(TBL_NAME=&DB2_TMP..&TABLE_PREFIX._CLAIMS2_QL);
+
+       PROC SQL;
+         CONNECT TO DB2 AS DB2(DSN=&UDBSPRP);
+         CREATE TABLE &DB2_TMP..&TABLE_PREFIX._CLAIMS2_QL AS
+         SELECT * FROM CONNECTION TO DB2
+            (SELECT DISTINCT
+                0 as LTR_RULE_SEQ_NB,
+                A.PT_BENEFICIARY_ID,
+                A.CDH_BENEFICIARY_ID,
+                A.BIRTH_DT,
+                A.CLIENT_ID,
+                A.CLT_PLAN_GROUP_ID2,
+				A.ADJ_ENGINE,
+                CLIENT_NM,
+                c.PLAN_CD,
+                c.GROUP_CD,
+                c.BLG_REPORTING_CD,
+                DRUG_ABBR_PROD_NM,
+                CASE
+                  WHEN (REFILL_FILL_QY >= 1 AND REFILL_FILL_QY < 9999) THEN REFILL_FILL_QY
+                  WHEN (ANNUAL_FILL_QY > 1 AND ANNUAL_FILL_QY < 9999) THEN (ANNUAL_FILL_QY - 1)
+                END as REFILL_FILL_QY,
+                       MOC_PHM_CD,
+                        CS_AREA_PHONE
+            FROM &DB2_TMP..&TABLE_PREFIX._CLAIMS_QL A,
+                 &DB2_TMP..&TABLE_PREFIX._CPG_ELIG_QL B,
+                 &DB2_TMP..&TABLE_PREFIX._CPG_MOC C,
+                 &CLAIMSA..TCLIENT1 E,
+            SUMMARY.TDRUG_COV_LMT_SUMM D
+            where A.PT_BENEFICIARY_ID = B.PT_BENEFICIARY_ID
+                AND   A.CLIENT_ID = E.CLIENT_ID
+                AND   C.CLT_PLAN_GROUP_ID = B.CLT_PLAN_GROUP_ID
+/*                AND   D.BILLING_END_MONTH = 201102*/
+                AND   D.BILLING_END_MONTH = &MAX_COPAY_DATE
+                AND   C.POS_PB = D.PB_ID
+                AND   A.DRUG_CATEGORY_ID = D.DRUG_CATEGORY_ID);
+        DISCONNECT FROM DB2;
+       QUIT;
+      %SET_ERROR_FL;
+      %ON_ERROR(ACTION=ABORT, EM_TO=&PRIMARY_PROGRAMMER_EMAIL,
+             EM_SUBJECT="HCE SUPPORT:  Notification of Abend",
+             EM_MSG="A problem was encountered.  See LOG file - &PROGRAM_NAME..log for Initiative ID &Initiative_ID");
+
+      %LET ERR_FL=0;
+       %RUNSTATS(TBL_NAME=&DB2_TMP..&TABLE_PREFIX._CLAIMS2_QL);
+
+%END;   /* END QL PROCESS FOR REFILLS*/
+
+
+%MEND  REFILL_DATA;
+%REFILL_DATA;
+
+*SASDOC--------------------------------------------------------------------------
+| MAY2008 C.J.S 
+| THIS PROCESS WILL DOWNLOAD EDW DATA TO UNIX FOR EACH ADJUDICATION.
+|
++------------------------------------------------------------------------SASDOC*;
+ 
+%MACRO PROCESS1;
+
+%IF &QL_ADJ EQ 1 %THEN %DO;
+
+%DROP_DB2_TABLE(TBL_NAME=&DB2_TMP..&TABLE_PREFIX._CLAIMS3_QL);
+DATA &DB2_TMP..&TABLE_PREFIX._CLAIMS3_QL(DROP = CLT_PLAN_GROUP_ID2);
+ SET &DB2_TMP..&TABLE_PREFIX._CLAIMS2_QL;
+ CLIENT_LEVEL_1 = PUT(CLT_PLAN_GROUP_ID2,$20.);
+ CLIENT_LEVEL_2 = ' ';
+ CLIENT_LEVEL_3 = ' ';
+RUN;
+
+%EDW2UNIX(TBL_NM_IN=&DB2_TMP..&TABLE_PREFIX._CLAIMS3_QL
+		 ,TBL_NM_OUT=DATA.&TABLE_PREFIX._CLAIMS2_QL
+          ,ADJ_ENGINE=1  );
+%END;
+%IF &RX_ADJ EQ 1 %THEN %DO;
+%EDW2UNIX(TBL_NM_IN=&ORA_TMP..&TABLE_PREFIX._CPG_ELIG_RX
+		 ,TBL_NM_OUT=DATA.&TABLE_PREFIX._CPG_ELIG_RX
+         ,ADJ_ENGINE=2   );
+%END;
+%IF &RE_ADJ EQ 1 %THEN %DO;
+%EDW2UNIX(TBL_NM_IN=&ORA_TMP..&TABLE_PREFIX._CPG_ELIG_RE
+		 ,TBL_NM_OUT=DATA.&TABLE_PREFIX._CPG_ELIG_RE
+         ,ADJ_ENGINE=3  );
+%END;
+
+%MEND PROCESS1;
+%PROCESS1;
+
+*SASDOC--------------------------------------------------------------------------
+| MAY2008 C.J.S
+| CALL THE MACRO %COMBINE_ADJUDICATIONS. THE LOGIC IN THE MACRO COMBINES THE CLAIMS
+| THAT WERE PULLED FOR ALL THREE ADJUDICATIONS.
+|
++------------------------------------------------------------------------SASDOC*;
+ 
+
+%COMBINE_ADJ(TBL_NM_QL=DATA.&TABLE_PREFIX._CLAIMS2_QL,
+             TBL_NM_RX=DATA.&TABLE_PREFIX._CPG_ELIG_RX,
+             TBL_NM_RE=DATA.&TABLE_PREFIX._CPG_ELIG_RE,
+             TBL_NM_OUT=&DB2_TMP..&TABLE_PREFIX.PT_DRUG_GROUP_COMB
+             ); 
+
+
+ *SASDOC-------------------------------------------------------------------------
+ | GET BENEFICIARY ADDRESS AND CREATE SAS FILE LAYOUT.
+ | JUL2004 C.J.S
+ | INPUT FILE NAME CHANGED
+ +-----------------------------------------------------------------------SASDOC*;
+ %CREATE_BASE_FILE(TBL_NAME_IN=&DB2_TMP..&TABLE_PREFIX.PT_DRUG_GROUP_COMB);
+
+ *SASDOC-------------------------------------------------------------------------
+ | CALL %CHECK_DOCUMENT TO SEE IF THE STELLENT ID(S) HAVE BEEN ATTACHED.
+ +-----------------------------------------------------------------------SASDOC*;
+
+ %CHECK_DOCUMENT;
+
+ *SASDOC-------------------------------------------------------------------------
+ | CHECK FOR AUTORELEASE OF FILE.
+ +-----------------------------------------------------------------------SASDOC*;
+ %AUTORELEASE_FILE(INIT_ID=&INITIATIVE_ID, PHASE_ID=&PHASE_SEQ_NB);
+
+
+ *SASDOC-------------------------------------------------------------------------
+ | DROP THE TEMPORARY UDB TABLES
+ +-----------------------------------------------------------------------SASDOC*;
+ 
+
+ *SASDOC-------------------------------------------------------------------------
+ | INSERT DISTINCT RECIPIENTS INTO TCMCTN_PENDING IF THE FILE IS NOT AUTORELEASE.
+ | THE USER WILL RECEIVE AN EMAIL WITH THE INITIATIVE SUMMARY REPORT.  IF THE
+ | FILE IS AUTORELEASED, %RELEASE_DATA IS CALLED AND NO EMAIL IS GENERATED FROM
+ | %INSERT_TCMCTN_PENDING.
+ +-----------------------------------------------------------------------SASDOC*;
+
+ %INSERT_TCMCTN_PENDING(INIT_ID=&INITIATIVE_ID, PHASE_ID=&PHASE_SEQ_NB);
+ %ON_ERROR(ACTION=ABORT, EM_TO=&PRIMARY_PROGRAMMER_EMAIL,
+           EM_SUBJECT="HCE SUPPORT:  Notification of Abend",
+           EM_MSG="A problem was encountered.  See LOG file - &PROGRAM_NAME..log for Initiative Id &INITIATIVE_ID");
+
+**SASDOC -----------------------------------------------------------------------------
+ | GENERATE CLIENT_INITIATIVE_SUMMARY REPORT
+ + ----------------------------------------------------------------------------SASDOC*;
+
+ PROC SQL;
+ SELECT MAX(REQUEST_ID) INTO :MAX_ID
+ FROM HERCULES.TREPORT_REQUEST;
+ QUIT;
+%PUT  &MAX_ID;
+
+PROC SQL;
+INSERT INTO HERCULES.TREPORT_REQUEST
+(REQUEST_ID, REPORT_ID, REQUIRED_PARMTR_ID, SEC_REQD_PARMTR_ID, JOB_REQUESTED_TS,
+ JOB_START_TS, JOB_COMPLETE_TS, HSC_USR_ID , HSC_TS , HSU_USR_ID , HSU_TS )
+
+VALUES
+(%EVAL(&MAX_ID.+1), 11, &INITIATIVE_ID., &PHASE_SEQ_NB., %SYSFUNC(DATETIME()), %SYSFUNC(DATETIME()), 
+ NULL, 'QCPAP020' , %SYSFUNC(DATETIME()), 'QCPAP020', %SYSFUNC(DATETIME()));
+
+QUIT;
+
+options sysparm="request_id=%EVAL(&MAX_ID.+1)" ;
+%INCLUDE "/PRG/sastest1/hercules/reports/client_initiative_summary.sas";
+
+**SASDOC -----------------------------------------------------------------------------
+ | GENERATE RECEIVER_LISTING REPORT
+ + ----------------------------------------------------------------------------SASDOC*;
+
+ PROC SQL;
+ SELECT MAX(REQUEST_ID) INTO :MAX_ID
+ FROM HERCULES.TREPORT_REQUEST;
+ QUIT;
+%PUT  &MAX_ID;
+
+PROC SQL;
+INSERT INTO HERCULES.TREPORT_REQUEST
+(REQUEST_ID, REPORT_ID, REQUIRED_PARMTR_ID, SEC_REQD_PARMTR_ID, JOB_REQUESTED_TS,
+ JOB_START_TS, JOB_COMPLETE_TS, HSC_USR_ID , HSC_TS , HSU_USR_ID , HSU_TS )
+
+VALUES
+(%EVAL(&MAX_ID.+1), 15, &INITIATIVE_ID., &PHASE_SEQ_NB., %SYSFUNC(DATETIME()), %SYSFUNC(DATETIME()), 
+ NULL, 'QCPAP020' , %SYSFUNC(DATETIME()), 'QCPAP020', %SYSFUNC(DATETIME()));
+
+QUIT;
+
+options sysparm="request_id=%EVAL(&MAX_ID.+1)" ;
+%INCLUDE "/PRG/sastest1/hercules/reports/receiver_listing.sas";
+ *SASDOC-------------------------------------------------------------------------
+ | UPDATE THE JOB COMPLETE TIMESTAMP.
+ +-----------------------------------------------------------------------SASDOC*;
+ %UPDATE_TASK_TS(JOB_COMPLETE_TS);
+
+
