@@ -1,0 +1,2291 @@
+1                                                          The SAS System                                17:01 Friday, March 1, 2013
+
+NOTE: Unable to open SASUSER.REGSTRY. WORK.REGSTRY will be opened instead.
+NOTE: All registry changes will be lost at the end of the session.
+
+WARNING: Unable to copy SASUSER registry to WORK registry. Because of this, you will not see registry customizations during this 
+         session.
+NOTE: Copyright (c) 2002-2003 by SAS Institute Inc., Cary, NC, USA. 
+NOTE: SAS (r) 9.1 (TS1M3)
+      Licensed to CVS PHARMACY INC, Site 0031083008.
+NOTE: This session is executing on the AIX 6.1 platform.
+
+
+
+NOTE: SAS 9.1.3 Service Pack 4
+
+You are running SAS 9. Some SAS 8 files will be automatically converted 
+by the V9 engine; others are incompatible.  Please see 
+http://support.sas.com/rnd/migration/planning/platform/64bit.html
+
+PROC MIGRATE will preserve current SAS file attributes and is 
+recommended for converting all your SAS libraries from any 
+SAS 8 release to SAS 9.  For details and examples, please see
+http://support.sas.com/rnd/migration/index.html
+
+
+This message is contained in the SAS news file, and is presented upon
+initialization.  Edit the file "news" in the "misc/base" directory to
+display site-specific news and information in the program log.
+The command line option "-nonews" will prevent this display.
+
+
+
+
+NOTE: SAS initialization used:
+      real time           0.04 seconds
+      cpu time            0.04 seconds
+      
+
+NOTE: AUTOEXEC processing beginning; file is /user1/qcpap020/autoexec.sas.
+
+NOTE: Libref CLAIMSA was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+NOTE: Libref QCPAP020 was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+NOTE: Libref EGTASK was successfully assigned as follows: 
+      Levels:           1
+      Engine(1):        V9 
+      Physical Name(1): /sas/saswork/SAS_work4DE2015400CC_prdsas1
+    SAS (r) Proprietary Software Release 9.1  TS1M3
+
+ SASAUTOS=("/PRG/sasprod1/hercules/macros"  '!SASROOT/sasautos' '/PRG/sasprod1/sas_macros')
+                   Search list for autocall macros
+
+NOTE: AUTOEXEC processing completed.
+
+1          /*%include '/user1/qcpap020/autoexec_new.sas';*/
+2          /*HEADER-----------------------------------------------------------------------
+2                                                          The SAS System                                17:01 Friday, March 1, 2013
+
+3          |
+4          | PROGRAM:  file_release_wrapper.sas
+5          |
+6          | LOCATION: /PRG/sastest1/hercules
+7          |
+8          | PURPOSE:  This macro is a "wrapper" for the following "file release" process
+9          |           macros:
+10         |
+11         |             (1) %check_document          - ensures that pending files have
+12         |                                            valid APN_CMCTN_IDs.
+13         |             (2) %complete_data_cleansing - carries updates made by the user
+14         |                                            into the pending file.
+15         |             (3) %release_data            - determines the contents of the
+16         |                                            final output based on the file
+17         |                                            usage type code, and sends it to
+18         |                                            the appropriate destination.
+19         |
+20         |           The purpose of this macro is to simplify the manner by which
+21         |           the file release macros are invoked by SAS IT and Java.
+22         |
+23         | INPUT:    MACRO PARMS:
+24         |
+25         |             INIT_ID  = (Default: &INITIATIVE_ID)
+26         |             PHASE_ID = (Default: &PHASE_SEQ_NB)
+27         |             COM_CD   = (Default: &CMCNT_ROLE_CD)
+28         |
+29         | OUTPUT:   See individual macros for more detailed descriptions of the impact
+30         |           of the specific macro calls initiated by this program.  The output
+31         |           is in general a final output file/dataset, updated system tables,
+32         |           status reports and email notification to users/client.
+33         |
+34         | CALLED PROGRAMS:
+35         |
+36         |   %ISNULL                  - to determine the presence of required parameters.
+37         |   %CHECK_DOCUMENT          - as described above.
+38         |   %COMPLETE_DATA_CLEANSING - as described above.
+39         |   %RELEASE_DATA            - as described above.
+40         |
+41         +-------------------------------------------------------------------------------
+42         | HISTORY:  19NOV2003 - T.Kalfas  - Original.
+43         |           10SEP2009 - N.Williams -  Copy of file_release_wrapper code for releasing
+44         |                                     files in batch mode. Added lines to call
+45         |                                     set_sysmode,hercules_in, update_request_ts.
+46         |           10MAR2010 - G. Dudley - added new program IDs for EOMS (FORMERLY COE)
+47         |           05APR2010 - N. Williams - added logic for program ID 5246 to place
+48         |                                     certain values in fields for neg frm mailing.
+49         |           27MAY2010 - N. Williams - added EOMS (aka cee,coe) program ID 5356, 5357
+50         |                                     for selective of the cee_check_docment.
+51         |           05SEP2010 - D. Palmer  -  added PA program id 5371 to EOMS program list
+52         |           15MAR2012 - R Smith 	- Added call to macro to request initiative summary parms report
+53         +-----------------------------------------------------------------------HEADER*/
+54         
+55         %macro file_release_wrapper_sb(init_id=&initiative_id,
+56                                     phase_id=&phase_seq_nb,
+57                                     com_cd=&cmctn_role_cd,
+58                                     doc_cd=&document_loc_cd);
+59         			
+60           options replace;			
+3                                                          The SAS System                                17:01 Friday, March 1, 2013
+
+61         
+62         
+63            %let init_id=%cmpres(&init_id);
+64            %let phase_id=%cmpres(&phase_id);
+65            %let com_cd=%cmpres(&com_cd);
+66            %let doc_cd=%cmpres(&doc_cd);
+67         
+68           %*SASDOC=====================================================================;
+69           %* This program is being executed by Java/SAS-IT testing, so the log
+70           %* information must specifically be directed to a disk file.  The program
+71           %* task log is handled by the Hercules Task Master and is stored in the
+72           %* &DATA_LOG directory.  This "wrapper" log will also be stored in the
+73           %* &DATA_LOG directory, but it will incorporate the &CMCTN_ROLE_CD in the
+74           %* log file name.
+75           %*====================================================================SASDOC*;
+76         
+77           %put NOTE: (&SYSMACRONAME): Re-routing log to &log_dir/t_&init_id._&phase_id._&com_cd._rls.log.;
+78         
+79           proc printto log="&log_dir/t_&init_id._&phase_id._&com_cd._rls.log" new;
+80           run;
+81         
+82           %*SASDOC=====================================================================;
+83           %* Call update_request_ts to signal the start of executing file release in batch
+84           %*
+85           %*====================================================================SASDOC*;
+86         /*  %update_request_ts(start);*/
+87         
+88             %*SASDOC===================================================================;
+89             %* Initiate the CHECK DOCUMENT process.  NOTE: Indirect inheritance of the
+90             %* the following global macro variables occurs:  INITIATIVE_ID,
+91             %* PHASE_SEQ_NB, CMCTN_ROLE_CD, and DOCUMENT_LOC_CD.  Problems may arise
+92             %* if these variables are not assigned.
+93         	%* 09Sept2010 D. Palmer - Added program id 5371 for Pharmacy Advisor
+94         	%*==================================================================SASDOC*;
+95         
+96         %if (&PROGRAM_ID=5252 or &PROGRAM_ID=5253 or &PROGRAM_ID=5254 or &PROGRAM_ID=5255 or &PROGRAM_ID=5256 or &PROGRAM_ID=5270
+96       !  or &PROGRAM_ID=5296 or &PROGRAM_ID=5297 or
+97                  &PROGRAM_ID=5349 or &PROGRAM_ID=5350 or &PROGRAM_ID=5351 or &PROGRAM_ID=5352 or &PROGRAM_ID=5353 or
+97       ! &PROGRAM_ID=5354 or &PROGRAM_ID=5355 or &PROGRAM_ID=5356 or
+98                  &PROGRAM_ID=5357 or &PROGRAM_ID=5371 or &PROGRAM_ID=5368)
+99             	%then %do;
+100        	   		%cee_check_document;
+101        %end;
+102        %else %if (&PROGRAM_ID=5369)  %then %do;
+103        	   		%abpd_check_document;
+104        %end;
+105        /*		programs were out of scope for add base columns*/
+106        /*		and use old chaeck_document without additional columns*/
+107        %else %if (&PROGRAM_ID=123 or &PROGRAM_ID=5259 or &PROGRAM_ID=5246)
+108        /*%else %if (&PROGRAM_ID=123 or &PROGRAM_ID=5246)*/
+109        		%then %do;
+110        			%check_document_prod;
+111        %end;
+112        %else %if &program_id ne 72 and &program_id ne 5295 %then %do;
+113        			%check_document;
+114        %end;
+115        
+116        /*%end; */
+4                                                          The SAS System                                17:01 Friday, March 1, 2013
+
+117        
+118        
+119            %*SASDOC===================================================================;
+120            %* Initiate the COMPLETE DATA CLEANSING process.
+121            %*==================================================================SASDOC*;
+122        
+123            %complete_data_cleansing(init_id=&init_id, phase_id=&phase_id, com_cd=&com_cd);
+124        
+125        
+126            %*SASDOC===================================================================;
+127            %* Initiate the RELEASE DATA process.
+128            %*==================================================================SASDOC*;
+129        %macro release_data_sb(init_id=&initiative_id,
+130                            phase_id=&phase_seq_nb,
+131                            com_cd=&cmctn_role_cd);
+132         %GLOBAL adhoc_root ftp_ok vendor_email autorelease;
+133        
+134        %put note: running MissingFieldsFlag - begin release data macro;
+135          %*SASDOC=====================================================================;
+136          %* Scope the macro variables.
+137          %*====================================================================SASDOC*;
+138        
+139          %global  letter_type_qy_cd
+140        	   	   release_data_ok;
+141        
+142          %let release_data_ok=0;
+143        
+144          %local _col_delimiter
+145                 _col_name_sfx
+146                 _compress_file
+147                 _destination
+148                 _destination_cd
+149                 _destination_type_cd
+150                 _ds_opts
+151                 _first_row_col_names
+152                 _send_ok_file
+153                 _send_layout
+154        	 	 book_of_business
+155                 compress_cols
+156                 copy_ok
+157                 destination_flg
+158                 destination_root_dir
+159                 destination_sub_dir
+160                 ds_pnd
+161                 ds_pnd_where
+162                 file_id
+163        		 file_id99
+164                 file_name
+165                 file_transferred_flg
+166                 file_usage_cd
+167                 ftp_user
+168                 hsc_usr_id
+169        	 	 hsu_usr_id
+170                 librc
+171                 max_base_seq_nb
+172                 missing_fields
+173                 recip_sub_sort_str
+174                 recs_transferred
+5                                                          The SAS System                                17:01 Friday, March 1, 2013
+
+175                 required_fields
+176                 rtp_nm
+177                 rvr_file_path_tx
+178                 transfer_ok
+179                 update_err_flg
+180                 vendor_email
+181        		 MESSAGE_FOR_RELEASE_DATA
+182          ;
+183        
+184        
+185          %*SASDOC=====================================================================;
+186          %* Make sure that the initiative ID, phase sequence number, and communication
+187          %* role code parameters contain numeric values.
+188          %*====================================================================SASDOC*;
+189        
+190            proc sql noprint;
+191              %*SASDOC=================================================================;
+192              %* Retrieve file characteristics from &HERCULES..TPHASE_RVR_FILE and store
+193              %* in macro variables for conditional processing later in this macro.
+194              %*================================================================SASDOC* ;
+195        
+196              select  COMPRESS(PUT(file_id,8.)),
+197        			  COMPRESS(PUT(file_usage_cd,8.)),
+198        			  COMPRESS(PUT(destination_cd,8.)),
+199        			  COMPRESS(hsu_usr_id),
+200        			  COMPRESS(hsc_usr_id),
+201        			  COMPRESS(PUT(release_status_cd,8.)),
+202        			  COUNT(*)
+203              into   :file_id, :file_usage_cd, :_destination_cd,
+204        			 :hsu_usr_id, :hsc_usr_id, :release_status_cd,
+205        			 : n_rows
+206              from   &hercules..tphase_rvr_file
+207              where  initiative_id = &init_id    and
+208                     phase_seq_nb  = &phase_id   and
+209                     cmctn_role_cd = &com_cd ;
+210        		QUIT;
+211        
+212        		%PUT   destination_cd=&destination_cd.;
+213        
+214              %IF &n_rows. =0 %THEN
+215        							%DO;
+216        						%LET err_fl=1;
+217            %LET MESSAGE_FOR_RELEASE_DATA=Invalid combination of initiative_id phase_seq_nb cmctn_role_cd  ;
+218        							%END;
+219        
+220        
+221        	 %*SASDOC=================================================================;
+222        	  %* C.J.S APR2008
+223              %* Identify whether the file is a book of business mailing, i.e.,
+224              %* TPROGRAM_TASK.DEFLT_CLT_SETUP_CD=1 or 2 & TPROGRAM_TASK.BOOK_OF_BUS_IN=1.
+225              %* &QL_ADJ=1 & TPROGRAM_TASK.BOOK_OF_BUS_IN=0.
+226              %* This is necessary in determining the content of sample files later in
+227              %* in this macro.
+228              %*================================================================SASDOC*;
+229        
+230        	 proc sql noprint;
+231              select   /* case
+232                          when(init.ovrd_clt_setup_in=0 and prog.dflt_inclsn_in=1)
+6                                                          The SAS System                                17:01 Friday, March 1, 2013
+
+233                          then 1
+234                          else 0
+235                          end, */
+236                          translate(compbl(trim(left(short_tx))),'_',' ','_','/')
+237              into     /* :book_of_business_flg, */
+238                          :destination_sub_dir
+239              from    &hercules..tinitiative   init,
+240                      &claimsa..tprogram       prog
+241              where   init.initiative_id     = &init_id
+242                 and  prog.program_id        = init.program_id ;
+243               QUIT;
+244        
+245          %let MAX_FILE_SEQ_NB = .;
+246          PROC SQL NOPRINT;
+247              SELECT DISTINCT MAX(FILE_SEQ_NB) INTO : MAX_FILE_SEQ_NB
+248               FROM &HERCULES..TFILE_FIELD
+249                 WHERE FILE_ID =&FILE_ID;
+250                        ;
+251        	QUIT; 	
+252        
+253          %put MAX_FILE_SEQ_NB = &MAX_FILE_SEQ_NB.;
+254          %IF &MAX_FILE_SEQ_NB. EQ . %THEN %LET MAX_FILE_SEQ_NB = 1;
+255          %put MAX_FILE_SEQ_NB = &MAX_FILE_SEQ_NB.;
+256        
+257          %DO FILE_SEQ_NB=1 %TO &MAX_FILE_SEQ_NB.;
+258        
+259        	%IF &FILE_SEQ_NB = 1 and &FILE_ID = 17 %THEN %LET FILE_ID99 = 17;
+260        	/* 09AUG2010 D.Palmer replaced values in line below to match test data in TSTSAS1 DEV instance */
+261        	/*           File ID 30 in production is defined as File ID 31 in DEV table TFILE              */
+262        	 %ELSE %IF &FILE_SEQ_NB = 1 and &FILE_ID = 30 %THEN %LET FILE_ID99 = 30;
+263        /*	 REPLACE 31 WITH 30 BEFORE MOVING THIS CODE TO PRODUCTION */
+264        /*    %ELSE %IF &FILE_SEQ_NB = 1 and &FILE_ID = 31 %THEN %LET FILE_ID99 = 31;*/
+265          	%ELSE %IF &FILE_SEQ_NB = 1 %THEN %LET FILE_ID99 = 99;
+266        	%ELSE %LET FILE_ID99 = &FILE_ID.;
+267        	
+268        	%put file_id = &FILE_ID. ;
+269        	%put FILE_ID99 = &FILE_ID99. ;
+270        	%let err_fl=0;
+271        
+272            %IF &err_fl=1 %THEN %GOTO EXIT_RD;
+273        
+274             %LET _ds_opts=%str();
+275             %LET copy_ok=0;
+276             %LET ds_pnd=;
+277             %LET ds_pnd_where=;
+278             %LET file_name=;
+279             %LET file_transferred_flg=0;
+280             %LET max_base_seq_nb=0;
+281             %LET missing_fields=;
+282             %LET recip_sub_sort_str=;
+283             %LET recs_transferred=0;
+284             %LET required_fields=;
+285             %LET transfer_ok=0;
+286        	 %LET strata=;
+287        
+288              %*SASDOC=================================================================;
+289              %* Identify the fields that are expected to be in the file layout.  These
+290              %* fields are pulled from the &HERCULES..TPHASE_RVR_FILE, TFILE,
+7                                                          The SAS System                                17:01 Friday, March 1, 2013
+
+291              %* TFILE_FIELD, TFILE_BASE_FIELD, and TFILE_FIELD tables.
+292        	  %* When a mailing file is being generated, only fields with seq_nb
+293        	  %* less than 200 will be considered.  When a sample or analysis file
+294        	  %* is being generated, seq_nb 999 is not considered in determining
+295        	  %* max_base_seq_nb because it corresponds to LTR_RULE_SEQ_NB and
+296        	  %* that field should be at the end of the layout.
+297              %*================================================================SASDOC*;
+298        
+299              /** SR 18NOV2008: FIX ADDED TO RELEASE INITIATIVES THAT WERE CREATED/EXECUTED
+300        	                    PRIOR TO 20NOV2008 TO BE RELEASED WITHOUT THE ADDITION
+301        	                    OF THE NEWLY ADDED BASE COLUMNS ADJ_ENGINE, CLIENT_LEVEL_1,
+302        	                    CLIENT_LEVEL_2, CLIENT_LEVEL_3 **/
+303        /*		PROC SQL NOPRINT;*/
+304        /*			SELECT HSC_TS INTO: HSC_TS*/
+305        /*			FROM &HERCULES..TINITIATIVE*/
+306        /*			WHERE INITIATIVE_ID=&INITIATIVE_ID;*/
+307        /*		QUIT;*/
+308        /*		%PUT NOTE: HSC_TS = &HSC_TS. ;*/
+309        /**/
+310        /*		%IF &HSC_TS. > 20NOV2008:01:00:00.000000 %THEN %DO; */
+311        /*			%let seq_cons_history = %str();*/
+312        /*		%end;*/
+313        /*		%else %do;*/
+314        /*			%let seq_cons_history = %str(and seq_nb not in (13,14,15,16));*/
+315        /*		%end;*/
+316        
+317        	/** 02DEC2008: MODIFIED THE ABOVE FIX TO MAKE IT WORK FOR SAS VERSION 9 **/
+318        
+319        
+320        		PROC SQL NOPRINT;
+321        			SELECT DATEPART(HSC_TS) INTO: HSC_TS
+322        			FROM &HERCULES..TINITIATIVE
+323        			WHERE INITIATIVE_ID=&INITIATIVE_ID;
+324        		QUIT;
+325        
+326        		%PUT NOTE: HSC_TS = &HSC_TS.;
+327        
+328        		DATA _NULL_;
+329        			HSC_TS_SAS=&HSC_TS.;
+330        			PUT 'NOTE: HSC_TS_SAS = ' HSC_TS_SAS MMDDYY10.;
+331        			IF HSC_TS_SAS > '20NOV2008'D THEN DO;
+332        				CALL SYMPUT('SEQ_CONS_HISTORY',' ');
+333        			END;
+334        
+335        			ELSE DO;
+336        				CALL SYMPUT('SEQ_CONS_HISTORY','AND SEQ_NB NOT IN (13,14,15,16)');
+337        			END;
+338        		RUN;
+339        
+340        		%PUT NOTE: SEQ_CONS_HISTORY = &SEQ_CONS_HISTORY.;
+341        
+342              /*SASDOC=================================================================
+343               *14mar2011 - G. Dudley
+344               * For initiative executed before the March 04, 2011 deploy of iBenefits 3.0
+345               * the extra columns added for that deployment will not be included in the
+346               * required fields release_data expects when releasing an initiative.
+347               *================================================================SASDOC*/
+348        		DATA _NULL_;
+8                                                          The SAS System                                17:01 Friday, March 1, 2013
+
+349        			HSC_TS_SAS=&HSC_TS.;
+350              PROGRAM_ID=&PROGRAM_ID.;
+351        			PUT 'NOTE: HSC_TS_SAS = ' HSC_TS_SAS MMDDYY10.;
+352        			IF HSC_TS_SAS > '03MAR2011'D THEN DO;
+353        				CALL SYMPUT('IB3_CONS_HISTORY',' ');
+354        			END;
+355        
+356        			ELSE DO;
+357        				CALL SYMPUT('IB3_CONS_HISTORY','AND SEQ_NB NOT IN (
+358        														   119, 120, 121, 122, 123, 124, 125, 126,
+359        														   127, 128, 129, 130, 131, 132, 133,
+360        														   134,135,136,137,138,139,140,141,142,143,
+361                                                                   144,145,146,147,148,149,150,151,152,153,
+WARNING: The quoted string currently being processed has become more than 262 characters long.  You may have unbalanced quotation 
+         marks.
+362                                                                   154,155,156,157,158,159,160,161,162,163,
+363                                                                   164,165,166,167,168,169,170,171,172,173,
+364                                                                   174,175,176,177,178,179,180,181,182,183,
+365                                                                   184,185,186,187,188,189,190,191,192,193,
+366                                                                   194,195,196,197,198,199)');
+367              END;
+368              IF PROGRAM_ID=5369 THEN DO;
+369        				CALL SYMPUT('IB3_CONS_HISTORY','AND PROGRAM_ID NOT IN (5369)');
+370              END;
+371        		RUN;
+372        
+373        		%PUT NOTE: IB3_CONS_HISTORY = &IB3_CONS_HISTORY.;
+374        
+375        		/*SASDOC=================================================================
+376               	*08Jul2011 - Sathishkumar Veeraswamy (SKV)
+377               	* For initiative executed before the July 2011 deploy of PSG
+378               	* the extra columns added for that deployment will not be included in the
+379               	* required fields release_data expects when releasing an initiative.
+380               	*================================================================SASDOC*/
+381        		DATA _NULL_;
+382        			HSC_TS_SAS=&HSC_TS.;
+383              FILE_ID =&file_id.;
+384              PROGRAM_ID=&PROGRAM_ID;
+385        			PUT 'NOTE: HSC_TS_SAS = ' HSC_TS_SAS MMDDYY10.;
+386        			IF HSC_TS_SAS > '25JUL2011'D THEN DO; /*Need to change the date, SKV*/
+387        				CALL SYMPUT('PSG_0711_CONS_HISTORY',' ');
+388        			END;
+389        
+390        			ELSE DO;
+391        				CALL SYMPUT('PSG_0711_CONS_HISTORY','AND SEQ_NB NOT IN (200,201,202,203)');
+392              END;
+393              IF PROGRAM_ID=5369 THEN DO;
+394        				CALL SYMPUT('PSG_0711_CONS_HISTORY','AND PROGRAM_ID NOT IN (5369)');
+395              END;
+396        		RUN;
+397        
+398        		%PUT NOTE: PSG_0711_CONS_HISTORY = &PSG_0711_CONS_HISTORY.;
+399        
+400        
+401        	  proc sql noprint;
+402               select   COALESCE(max(seq_nb),0)
+403                into     :max_base_seq_nb
+404                from     &hercules..tfile_base_field
+9                                                          The SAS System                                17:01 Friday, March 1, 2013
+
+405        
+406              %***;
+407        
+408        
+409              %*if &file_usage_cd^=2 %then (J.Chen, 3/23/04);
+410        
+411        		%if &file_usage_cd=1 %then
+412        					%do;
+413                      where seq_nb<200
+414        			        &seq_cons_history.
+415                      &IB3_CONS_HISTORY.
+416        			  &PSG_0711_CONS_HISTORY.
+417                  %end;
+418        
+419        		%else %do;
+420        		      where seq_nb ^= 999
+421        			        &seq_cons_history.
+422                      &IB3_CONS_HISTORY.
+423        			  &PSG_0711_CONS_HISTORY.
+424        			  %end;
+425        		AND &FILE_SEQ_NB.=1
+426        			;
+427              ;
+428            QUIT;
+429        
+430        	 proc sql noprint;
+431              create   table work.required_fields  as
+432              select   rcvr.initiative_id,
+433                       rcvr.phase_seq_nb,
+434                       rcvr.cmctn_role_cd,
+435                       rcvr.letters_sent_qy,
+436                       rcvr.file_usage_cd,
+437                       rcvr.destination_cd,
+438                       rcvr.file_id,
+439                       rcvr.hsc_usr_id,
+440                       rcvr.hsu_usr_id,
+441                       file.short_tx          as file_short_tx,
+442                       file.long_tx           as file_long_tx,
+443                       flds.seq_nb            as field_seq_nb,
+444                       flds.new_seq_nb        as field_new_seq_nb,
+445                       fdes.format_sas_tx,
+446        
+447                       upcase(fdes.field_nm)  as field_nm,
+448                       fdes.short_tx          as field_short_tx,
+449                       fdes.long_tx           as field_long_tx
+450              from     &hercules..tphase_rvr_file 					AS rcvr,	
+451                       &hercules..tfile(WHERE=(file_id=&file_id99))   AS file,
+452                      (select &file_id99 as file_id,
+453                              base.field_id,
+454                              base.seq_nb,
+455                              base.seq_nb as new_seq_nb
+456                       from   &hercules..tfile_base_field(WHERE=(seq_nb=&FILE_SEQ_NB. * seq_nb &seq_cons_history.))
+457                              AS base
+458        			   union corresponding
+459                       select flds0.file_id,
+460                              flds0.field_id,
+461                              flds0.seq_nb,
+462                             (flds0.seq_nb + &max_base_seq_nb.) as new_seq_nb
+10                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+463                       from   &hercules..tfile_field(WHERE=(file_id=&file_id99. &ib3_cons_history. &PSG_0711_CONS_HISTORY.
+464        			   	 							 AND  FILE_SEQ_NB=&FILE_SEQ_NB.)) AS flds0
+465        				)        						AS  flds,
+466                       &hercules..tfield_description   	AS	fdes
+467        
+468              where    rcvr.initiative_id   = &init_id      and
+469                       rcvr.phase_seq_nb    = &phase_id     and
+470                       rcvr.cmctn_role_cd   = &com_cd       and(
+471                       rcvr.file_id         = file.file_id or &file_id99 = 99 or &file_id99 = 17) and
+472        			   file.file_id			= flds.file_id  and
+473                       flds.field_id        = fdes.field_id
+474        
+475              %*SASDOC=================================================================;
+476              %* If the output file is not a "sample" then exclude all of the fields
+477              %* where SEQ_NB >= 200.
+478        	  %*
+479        	  %* Modifications: 1) SEQ_NB >= 200 is now only being excluded for
+480        	  %*                   "mailings" (QCPI134, 3/24/04)
+481              %*================================================================SASDOC*;
+482        
+483              %*if &file_usage_cd^=2 %then %str( and flds.seq_nb < 200 ) (J.Chen, 3/23/04);
+484              %if &file_usage_cd=1 %then %str( and flds.seq_nb < 200 );
+485        
+486              order by flds.new_seq_nb;
+487        
+488            quit;
+489        
+490        	 %set_error_fl2;
+491        
+492            %*SASDOC===================================================================;
+493            %* Cleanup the &destination_sub_dir macro variable.  &, <space>, and /
+494            %* were translated to _ in the initial query.  Now, the remaining spaces
+495            %* are removed.
+496            %*==================================================================SASDOC*;
+497        
+498            %*SASDOC===================================================================;
+499            %* 07/22/2008 g.o.d.
+500            %* Replaced %sysfunc(compress( with %cmpres(
+501            %*==================================================================SASDOC*;
+502        
+503            %let destination_sub_dir=%sysfunc(compress(&destination_sub_dir));
+504            %*SASDOC===================================================================;
+505            %* Store the name of the pending dataset in a macro variable.
+506            %*==================================================================SASDOC*;
+507        
+508            %LET ds_pnd_main=data_pnd.t_&init_id._&phase_id._&com_cd;
+509            %IF &FILE_SEQ_NB=1 %THEN %let ds_pnd=&ds_pnd_main.;
+510            %ELSE %let ds_pnd=&ds_pnd_main._&FILE_SEQ_NB.;		
+511        
+512        
+513            %*SASDOC===================================================================;
+514            %* Confirm that the task pending library and dataset exist.
+515            %*==================================================================SASDOC*;
+516        
+517            %if %sysfunc(exist(&ds_pnd)) NE 1 %then  %do;
+518        			%LET err_fl=1;
+519        			%LET MESSAGE_FOR_RELEASE_DATA=%STR(ERROR: (&SYSMACRONAME): &ds_pnd does not exist.);
+520            %end;
+11                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+521            %IF &err_fl=1 %THEN %GOTO EXIT_RD;
+522        
+523        	/*
+524              %*SASDOC=================================================================;
+525              %* Add a filter (DATA_QUALITY_CD=1) to the &DS_PND dataset name for
+526              %* mailing  files.  All records from &DS_PND will be
+527              %* retained for "Analysis" datasets as will the DATA_QUALITY_CD variable.
+528        	  %*C.J.S - 09/19/07
+529              %*deleted the following line so that the pgm will keep all records with
+530              %*DATA_QUALITY_CD=1
+531              %*      if &file_usage_cd^=3 AND &FILE_SEQ_NB.=1 %then
+532              %*================================================================SASDOC*;
+533        
+534        	  %*SASDOC=================================================================;
+535              %* Add a filter (DATA_QUALITY_CD=1) to the &DS_PND dataset name for
+536              %* mailing  files.  All records from &DS_PND will be
+537              %* retained for "Analysis" datasets as will the DATA_QUALITY_CD variable.
+538        	  %*C.J.S - 12/10/07
+539              %*CHANGED the following line so that the pgm will keep all records with
+540              %*DATA_QUALITY_CD=1 AND 2
+541              %*      %let ds_pnd_where=%str((where=(data_quality_cd=1)));
+542        	  %*
+543        	  %* iBenefit 3.0 - Added an additional condition to set ds_pnd_where
+544        	  %* when File id = 35. SKV, 13JAN20100
+545              %*================================================================SASDOC*;
+546        
+547            */
+548              %if &file_id. = 17 and &FILE_SEQ_NB=2 %then %do;  **ibenefit 1.0 - detail file;
+549                %let ds_pnd_where=%str();
+550              %end;
+551              %else %if &file_id. = 26 and &FILE_SEQ_NB=2 %then %do;  **ibenefit 2.0 - detail file;
+552                %let ds_pnd_where=%str();
+553              %end;
+554        	  %else %if &file_id. = 35 and &FILE_SEQ_NB=2 %then %do;  **ibenefit 3.0 - detail file, SKV;
+555                %let ds_pnd_where=%str();
+556              %end;
+557        	  %else %if &file_id. = 28 and &FILE_SEQ_NB=2 %then %do;  **proactive access health alert - detail file;
+558        	 	 %let ds_pnd_where=%str();
+559              %end;
+560        	  %else %if &file_id. = 28 and &FILE_SEQ_NB=3 %then %do;  **proactive access health alert - health alert file;
+561        	 	 %let ds_pnd_where=%str();
+562              %end;
+563              %else %if &file_usage_cd ne 1 and &file_id. = 26 %then %do;  **edw member id issue - not a mailing and ibenefits;
+564                %let ds_pnd_where=%str((where=(data_quality_cd IN(1,2,4))));
+565              %end;
+566              %else %do;
+567                %let ds_pnd_where=%str((where=(data_quality_cd IN(1,2))));
+568              %end;
+569        
+570        	  proc sql noprint;
+571        	   select COUNT(*) INTO : n_obs
+572        	   from &ds_pnd.&ds_pnd_where;
+573        	  quit;
+574        	
+575                  %if &FILE_SEQ_NB.=1 %then %let n_obs_main=&n_obs.;
+576        
+577                  %if &n_obs=0 %then  %do;
+578        
+12                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+579                       %LET err_fl=1;
+580                       %LET MESSAGE_FOR_RELEASE_DATA=%STR(ERROR: (&SYSMACRONAME): &ds_pnd has &n_obs observations.);
+581        
+582                       PROC SQL NOPRINT;
+583                         SELECT QUOTE(TRIM(email)) INTO :_em_to_user SEPARATED BY ' '
+584                         FROM ADM_LKP.ANALYTICS_USERS
+585                         WHERE UPCASE(QCP_ID) IN ("&hsu_usr_id");
+586                       QUIT;
+587        
+588                       PROC SQL NOPRINT;
+589                         SELECT QUOTE(TRIM(email)) INTO :_em_c_user SEPARATED BY ' '
+590                         FROM ADM_LKP.ANALYTICS_USERS
+591                         WHERE UPCASE(QCP_ID) IN ("&hsc_usr_id");
+592                       QUIT;
+593        
+594                       %let msg_str1=%bquote(There were no records that meet your selected criteria for Initiative
+594      ! &&initiative_id.);
+595                       %let msg_str2=%bquote(If any records were generated, the daily quality code was not "good".);
+596                       %LET MESSAGE_FOR_RELEASE_DATA_USER=%str(&msg_str1. &msg_str2.);
+597        
+598                       %email_parms(EM_TO=&_em_to_user,
+599                                    EM_CC=&_em_c_user,
+600                                    EM_SUBJECT=No record were found for Initiative &initiative_id. ,
+601                                    EM_MSG=%str(&MESSAGE_FOR_RELEASE_DATA_USER.)  );
+602        
+603                  %end; /* End of do-group for &n_obs=0 */
+604        
+605                  %if &err_fl=1 %then %goto EXIT_RD;
+606        
+607        	
+608                  %*SASDOC===============================================================;
+609                  %* Determine whether all of the "layout" fields exist in the pending
+610                  %* dataset.  If any fields do not exist, then they are identified in
+611                  %* the log and the process is aborted (and the release_ts is set to
+612                  %* null so that the file continues to be presented to the user).
+613                  %*==============================================================SASDOC*;
+614        
+615                  proc contents data=&ds_pnd out=work.pnd_fields(keep=name) noprint;
+616                  run;
+617        
+618                  proc sql noprint;
+619                    create   table work.missing_fields as
+620                    select   field_seq_nb, field_nm
+621                    from     work.required_fields
+622                    where    upcase(field_nm) not in (select upcase(name) from work.pnd_fields)
+623                    order by field_new_seq_nb;
+624        
+625                    select   (count(*)>0)
+626                    into     :missing_fields_flg
+627                    from     work.missing_fields;
+628                  quit;
+629        
+630        	   %set_error_fl2;
+631        
+632        	  data work.required_fields;
+633                    set work.required_fields;
+634                    format field_nm_fmt $60.;
+635                    field_nm_fmt=trim(field_nm)||' format='||format_sas_tx;
+13                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+636                  run;
+637        %put note: MissingFiledsFlag is &missing_fields_flg ;
+638                  %if ^&missing_fields_flg %then %do;
+639        
+640        %put note: Go to true MissingFiledsFlag ;
+641        
+642        /*               proc sql noprint;*/
+643        /*                 select   field_nm_fmt into     :required_fields   separated by ', '*/
+644        /*                 from     work.required_fields*/
+645        /*                 order by field_new_seq_nb;*/
+646        /*               quit;*/
+647        /*			   %reset_sql_err_cd;*/
+648        
+649        			   proc sql noprint;
+650                         select   field_nm_fmt
+651                         into     :required_fields   separated by ', '
+652                         from     work.required_fields
+653        				 group by field_nm_fmt
+654        				 having field_new_seq_nb = min(field_new_seq_nb)
+655                         order by field_new_seq_nb;
+656                       quit;
+657        
+658                       %put required_fields &required_fields ;
+659        
+660                  %end;
+661                  %else %do;
+662        
+663        %put note: Go to false MissingFiledsFlag ;
+664        
+665                       proc sql noprint;
+666                         select   field_nm into     :missing_fields    separated by ', '
+667                         from     work.required_fields
+668                         where    field_nm not in (select upcase(name) from work.pnd_fields)
+669                         order by field_new_seq_nb;
+670                       quit;
+671        
+672        	  %let err_fl=1;
+673                  %let MESSAGE_FOR_RELEASE_DATA=%STR(ERROR: (&SYSMACRONAME): The folowing requiered fields are missing from the
+673      ! input dataset : &missing_fields..);
+674        							%END;
+675                  proc sql noprint;
+676                    drop  table work.missing_fields;
+677                  quit;
+678        
+679                  %if &err_fl=1 %then %goto EXIT_RD;
+680        
+681                  %*SASDOC=============================================================;
+682                  %* Sort the incoming dataset by receiver and subject ID, only keep
+683                  %* the required variables/columns, and filter the records/rows for
+684                  %* "sample" files.
+685                  %*============================================================SASDOC*;
+686                  %*SASDOC=============================================================;
+687                  %* Temporarily add the DATA_QUALITY_CD to the list of "required
+688                  %* fields".  This is necessary to retain the DATA_QUALITY_CD until
+689                  %* the updates have been made to the TPHASE_RVR_FILE.LETTERS_SENT_QY.
+690                  %* DATA_QUALITY_CD is permanently retained for "analysis" datasets.
+691                  %*============================================================SASDOC*;
+692                  %IF &FILE_SEQ_NB.=1 %THEN %LET required_fields=&required_fields, DATA_QUALITY_CD;
+14                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+693                  %*SASDOC=============================================================;
+694                  %* Determine if SUBJECT_ID exists as a variable in WORK.FINAL.  This
+695                  %* will define the sort key.
+696                  %*============================================================SASDOC*;
+697                  %let dsid=%sysfunc(open(&ds_pnd));
+698                  %if %sysfunc(varnum(&dsid,SUBJECT_ID)) %then %let recip_sub_sort_str=recipient_id, subject_id;
+699                  %else %let recip_sub_sort_str=recipient_id;
+700        
+701                  %if %sysfunc(varnum(&dsid,RANK_SAVING))  %then %let recip_sub_sort_str=&recip_sub_sort_str., RANK_SAVING;
+702        
+703                  %if %sysfunc(varnum(&dsid,CLIENT_ID)) %then %do;
+704                      %let recip_sub_sort_str=CLIENT_ID, &recip_sub_sort_str. ;
+705                      %let strata=%STR(STRATA CLIENT_ID);
+706                  %end;
+707                  %let dsid=%sysfunc(close(&dsid));
+708        
+709                  proc sql noprint;
+710                    create   table work.final as
+711                    select   *
+712                    from     &ds_pnd.&ds_pnd_where
+713                    order by &recip_sub_sort_str.;
+714                  quit;
+715        
+716        /*			PROC CONTENTS data = work.final out = data_pnd.contents_&initiative_id._&file_seq_nb.;*/
+717        /*			run;*/
+718        /*AK*/
+719                  %if (&file_id. = 26 or &file_id. = 35) and &FILE_SEQ_NB=1 %then %do;  **20110619 Change - ibenefit 2.0 - main
+719      ! file;
+720                    proc sql noprint;
+721                      create   table work.main_ibenefit_&initiative_id. as
+722                      select   recipient_id, data_quality_cd
+723                      from     work.final;
+724                    quit;
+725        
+726        
+727                  %end;
+728        
+729        
+730        /*	AK ADDED CODE 16APR2012	*/
+731        /*PROC CONTENTS DATA = work.main_ibenefit_&initiative_id. OUT = DATA_PND.contents_ibenefit_&initiative_id.;*/
+732        /*RUN;*/
+733        
+734                   %set_error_fl2;
+735        
+736                  %*SASDOC=============================================================;
+737                  %*  May  2007    - Brian Stropich
+738                  %*  For "sample" files, use proc surveyselect to randomly select records
+739                  %*  at the rate of .0001% with min records of 1 and max records of 1000000
+740                  %*  sampling will be evenly applied among client.
+741                  %*
+742                  %*  Business requests that there is 1 participant per client.
+743                  %*============================================================SASDOC*;
+744        
+745        
+746                  %if &file_usage_cd=2 and &n_obs_main>0 AND &FILE_SEQ_NB.=1 %then %do;
+747        
+748        	     proc surveyselect data=work.final method=srs
+749                          nmin=1 nmax=1000000 samprate=0.000001
+15                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+750                          seed=121718 out=work.final;
+751                          strata client_id;
+752                     run;
+753        					
+754        
+755                  %end; /* End of do-group for &file_usage_cd=2 */
+756        		  %IF &FILE_SEQ_NB.=1 %THEN %DO;
+757        
+758        			data final_main;
+759        			 set work.final;
+760        			run;
+761        			
+762                          %END; /* End of do-group for &FILE_SEQ_NB.=1 */
+763                          %ELSE	 %DO;
+764        
+765          			data final_main;
+766          			 set work.final;
+767          			run;
+768        
+769        			 proc sql;
+770        			  create table work.final_temp as
+771        			  select a.*
+772        			  from work.final 		as a,
+773        			       work.final_main 	as b
+774        			  where a.recipient_id=b.recipient_id
+775        			  order by &recip_sub_sort_str.  ;
+776        			quit;
+777        
+778        
+779        
+780        		   data WORK.FINAL;
+781        		    set WORK.FINAL_temp;
+782        			run;
+783        /*AK*/
+784                %if (&file_id. = 26 or &file_id. = 35) and &FILE_SEQ_NB=2 %then %do;  **20110619 Change - ibenefit 2.0 - detail
+784      ! file;
+785        
+786        		    proc sort data = work.final;
+787        			  by recipient_id;
+788        			run;
+789        
+790        			proc sort data = work.main_ibenefit_&initiative_id. ;
+791                      by recipient_id;
+792        			run;
+793        
+794        			data work.final;
+795        			  merge work.final (in=a)
+796        			        work.main_ibenefit_&initiative_id. (in=b) ;
+797        			  by recipient_id;
+798        			  if a and b;
+799        			run;
+800        /*	AK ADDED CODE 16APR2012	*/
+801        /*	PROC CONTENTS DATA = WORK.FINAL OUT = data_pnd.final_&initiative_id._usd_upd;*/
+802        /*	RUN;*/
+803        
+804        
+805        /*	PROC CONTENTS DATA = WORK.FINAL_main OUT = data_pnd.final_&initiative_id._main;*/
+806        /*	RUN;*/
+16                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+807                  %end;
+808        			
+809                          %END; /* End of do-group for &FILE_SEQ_NB. NE 1 */
+810        
+811                  proc sql noprint;
+812        
+813                    %*SASDOC===========================================================;
+814                    %* Determine where to send the final output.  The destinations are
+815                    %* stored in an auxiliary table (AUX_TAB.SET_FTP).  The file,
+816                    %* whether a text file or SAS dataset, will be compressed and FTPd
+817                    %* to that location.
+818                    %*==========================================================SASDOC*;
+819        
+820                    select   count(*),
+821                             destination_type_cd,
+822                             COMPRESS(destination),
+823                             destination_root_dir,
+824                             COMPRESS(ftp_host),
+825                             ftp_user,
+826                             send_ok_file,
+827                             send_layout,
+828                             compress_cols,
+829                             compress_file,
+830                             COMPRESS(notify_email)
+831                    into     :destination_flg,
+832                             :_destination_type_cd,
+833                             :_destination,
+834                             :destination_root_dir,
+835                             :ftp_host,
+836                             :ftp_user,
+837                             :_send_ok_file,
+838                             :_send_layout,
+839                             :compress_cols,
+840                             :_compress_file,
+841                             :vendor_email
+842                    from     aux_tab.set_ftp
+843                    where    destination_cd = &_destination_cd
+844        			;
+845                 QUIT;
+846                     %set_error_fl2;
+847                    %*SASDOC===========================================================;
+848                    %* Report the destination and FTP macro parameters.
+849                    %*==========================================================SASDOC*;
+850        
+851        	    %put NOTE: (&SYSMACRONAME):  PROGRAM_ID           = &PROGRAM_ID;
+852        	    %put NOTE: (&SYSMACRONAME):  DESTINATION_FLG      = &DESTINATION_FLG;
+853        	    %put NOTE: (&SYSMACRONAME):  _DESTINATION_CD      = &_DESTINATION_CD;
+854        	    %put NOTE: (&SYSMACRONAME):  _DESTINATION_TYPE_CD = &_DESTINATION_TYPE_CD;
+855                    %put NOTE: (&SYSMACRONAME):  _DESTINATION         = &_DESTINATION;
+856                    %put NOTE: (&SYSMACRONAME):  DESTINATION_ROOT_DIR = &DESTINATION_ROOT_DIR;
+857                    %put NOTE: (&SYSMACRONAME):  FTP_HOST             = &FTP_HOST;
+858                    %put NOTE: (&SYSMACRONAME):  _SEND_OK_FILE        = &_SEND_OK_FILE;
+859                    %put NOTE: (&SYSMACRONAME):  _SEND_LAYOUT         = &_SEND_LAYOUT;
+860                    %put NOTE: (&SYSMACRONAME):  COMPRESS_COLS        = &COMPRESS_COLS;
+861                    %put NOTE: (&SYSMACRONAME):  _COMPRESS_FILE       = &_COMPRESS_FILE;
+862                    %put NOTE: (&SYSMACRONAME):  VENDOR_EMAIL         = &VENDOR_EMAIL;
+863        
+864                    %*SASDOC===========================================================;
+17                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+865                    %* Create a WORK.FINAL dataset to contain only the "required fields"
+866                    %* or rather the file layout fields.
+867                    %*==========================================================SASDOC*;
+868        
+869        /*	AK ADDED CODE 25APR2012	*/
+870        /*AK*/
+871        %if (&file_id. = 26 or &file_id. = 35) AND &FILE_SEQ_NB. = 2 %THEN %DO;
+872        		PROC SQL;
+873                    CREATE  TABLE WORK.FINAL_temp AS
+874                    	SELECT DISTINCT &required_fields., DATA_QUALITY_CD
+875                          FROM     work.final
+876                    ORDER BY &recip_sub_sort_str;
+877        	  	   QUIT;
+878        %END;
+879        
+880        %ELSE %DO;
+881        
+882        			PROC SQL;
+883                    CREATE  TABLE WORK.FINAL_temp AS
+884                    	SELECT DISTINCT &required_fields.
+885                          FROM     work.final
+886                    ORDER BY &recip_sub_sort_str;
+887        	  	   QUIT;
+888        %END;
+889        
+890        		   data WORK.FINAL;
+891        		    set WORK.FINAL_temp;
+892        			run;
+893        
+894        /*	AK ADDED CODE 16APR2012	*/
+895        /*PROC CONTENTS DATA = WORK.FINAL OUT = FINAL_&INITIATIVE_ID._1;*/
+896        /*RUN;*/
+897        
+898        /*		   		%reset_sql_err_cd;*/
+899        				 %set_error_fl2;
+900        	    	   %*SASDOC================================================;
+901                       %* Specify formats for any date/datetime columns. These
+902        		       %* columns are identified by suffix, i.e., "_DT" = DATE,
+903        		       %* "_TS" = DATETIME.  Columns with the suffix "_AT" are
+904        		       %* formatted as 11.2 per P.Wonders (01/08/04).  Per
+905        		       %* J.Hou (01/12/04), format should be changed to 13.2.
+906                       %*===============================================SASDOC*;
+907        
+908        
+909                  %*SASDOC=============================================================;
+910                  %* Send final output files to the appropriate destination.
+911                  %*============================================================SASDOC*;
+912        
+913                  %IF &destination_flg NE 1 %THEN
+914        								%DO;
+915        			%LET err_fl=1;
+916        			%LET MESSAGE_FOR_RELEASE_DATA=%STR(ERROR: (&SYSMACRONAME): Invalid destination code: &_destination_cd..);
+917        								%END;
+918        		  %IF &err_fl=1 %THEN %GOTO EXIT_RD;
+919        
+920                    %*SASDOC===========================================================;
+921                    %* Determine the number of observations in the final output file.
+922                    %* This will be used to determine a successful transport process.
+18                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+923                    %*==========================================================SASDOC*;
+924        
+925        			PROC SQL noprint;
+926        	   			SELECT COUNT(*) INTO : _nobs
+927        	    	 FROM work.final
+928        		 		;
+929        	  		QUIT;
+930        			%IF &_nobs=0 %THEN
+931        					%DO;
+932        			%LET err_fl=1;
+933        			%LET MESSAGE_FOR_RELEASE_DATA=%STR(ERROR: (&SYSMACRONAME): No records to send.);
+934        					%END;
+935        		    %IF &err_fl=1 %THEN %GOTO EXIT_RD;
+936                    %*=================================================================;
+937                    %* Determine the full directory path on the destination based on
+938                    %* the DESTINATION_CD and FILE_USAGE_CD.
+939                    %*================================================================*;
+940                    %if &_destination_cd=1 %then
+941        			 %do;
+942        
+943                      %*SASDOC=========================================================;
+944                      %* Derive the full directory path on the ftp destination for
+945                      %* "Clinical Ops" files:
+946                      %*
+947                      %* The root directory has already been derived from the
+948                      %* CLAIMSA.TPROGRAM.SHORT_TX field by replacing spaces, slashes,
+949                      %* and ampersands with underscores.
+950                      %*
+951                      %* Adjust the &DESTINATION_SUB_DIR for "Clinical Ops" to add
+952                      %* another subdirectory for the particular file based on the
+953                      %* FILE_USAGE_CD:  1 = ./Mailing, 2 = ./Sample, 3 = ./Analysis.
+954                      %*========================================================SASDOC*;
+955        
+956                    %IF &FILE_SEQ_NB.=1
+957        			%THEN  %let destination_sub_dir=%sysfunc(compress(&destination_sub_dir))%str(/)%scan(MAILING SAMPLE
+957      ! ANALYSIS,%upcase(&file_usage_cd));
+958        
+959                    %end; /* End of do-group for &_destination_cd=1 */
+960                    %else %if &_destination_cd=2 %then
+961        						%do;
+962        
+963                      %*SASDOC=========================================================;
+964                      %* Derive the full directory path on the ftp destination for
+965                      %* "Zeus" files: The file will be sent to the &ADHOC_ROOT dir
+966                      %* (should be something like /DATA/sasadhoc1/hercules).
+967                      %*========================================================SASDOC*;
+968        
+969                      %if "&adhoc_root."="" %then %let adhoc_root=%bquote(/herc&sysmode/data/sasadhoc);
+970        
+971                      %let destination_sub_dir=%bquote(&adhoc_root./hercules);
+972        
+973                    			%end;  /* End of do-group for &_destination_cd=2 */	
+974                      %else
+975        				  		%do;
+976                      %*SASDOC=========================================================;
+977                      %* Derive the full directory path on the ftp destination for
+978                      %* "Client" files: The root directory is stored in the AUX_TAB.
+979                      %* SET_FTP.DESTINATION_ROOT_DIR field.
+19                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+980                      %*========================================================SASDOC*;
+981        
+982                      %let destination_sub_dir=&destination_root_dir;
+983        
+984                    			%end; /* End of do-group for &_destination_cd NOT IN (1,2) */
+985        
+986        	    %put NOTE:(&sysmacroname): Task output will be directory to %upcase(&ftp_host):&destination_sub_dir..;
+987                    %*SASDOC===========================================================;
+988                    %* Remove the DATA_QUALITY_CD from the list of required fields
+989                    %* prior to generating the final output file, unless the dataset
+990                    %* is for analysis.  Note that this is only done with a "drop"
+991                    %* as a dataset option in the call to %FTP_SAS_TO_TXT, and so
+992                    %* the DATA_QUALITY_CD is left in WORK.FINAL for subsequent use
+993                    %* in determining the new LETTERS_SENT_QY for update.
+994              			%*
+995              			%* Modifications: 1) DATA_QUALITY_CD will now be retained in
+996              			%*                   "sample" files as well. (QCPI134, 3/24/04)
+997                    %*==========================================================SASDOC*;
+998        
+999                    %*if &file_usage_cd^=3 (J.Chen, 3/24/04);
+1000       
+1001                   %if &file_usage_cd.=1 AND &FILE_SEQ_NB.=1
+1002                   %then %let _ds_opts=%str(drop=data_quality_cd);
+1003                   %else %let _ds_opts=%str();
+1004       
+1005                     %*SASDOC===========================================================;
+1006                     %* Determine whether the final output file is to be a text file or
+1007                     %* a SAS dataset.  "Mailing" and "Sample" files (FILE_USAGE_CD = 1
+1008                     %* and 2, respectively) are always generated as text files.  A file
+1009                     %* used for "Analysis" (FILE_USAGE_CD = 3) will be a SAS dataset if
+1010                     %* the destination is Zeus (DESTINATION_CD = 2), otherwise, it will
+1011                     %* be a text file.
+1012                     %*==========================================================SASDOC*;
+1013                     %*=================================================================;
+1014                     %* FTP TEXT OUTPUT FILES TO APPROPRIATE DESTINATION.
+1015                     %*================================================================*;
+1016       
+1017                     %IF &err_fl=1 %THEN %GOTO EXIT_RD;
+1018       
+1019       	      %if &_destination_cd^=2 %then %do;
+1020       	
+1021                          %*SASDOC=========================================================;
+1022                          %* Create a new file name for text output files to also contain
+1023                          %* the FILE_ID: t_&init_id._&phase_id._&com_cd._&file_id.  The
+1024                          %* extension of this file will be attached as appropriate during
+1025                          %* the copy/FTP process.
+1026                          %*========================================================SASDOC*;
+1027                          %*SASDOC=========================================================;
+1028                          %* If the file is destined for the TESTFTP or PRODFTP servers,
+1029                          %* it will ultimately be making its way out to an external client
+1030                          %* and the layout and .ok files should be sent with the data file.
+1031                          %* Otherwise, only the data file is sent.  These flags have been
+1032                          %* retrieved from AUX_TAB.SET_FTP as _SEND_OK_FILE & _SEND_LAYOUT.
+1033                          %*
+1034                          %*NOTE:
+1035                          %* 04/12/2006 G. Dudley - Added logic to add the prefix "rtml_" to
+1036                          %*                        the output file when program ID is 73
+1037                          %* 11/19/2009 G. Dudley - Added logic to add the prefix "coe_" to
+20                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+1038                          %*                        the output file when program ID is
+1039                          %* 5252 or 5253 or 5254 or 5255 or 5256 or 5270 or 5296 or 5297.
+1040                          %* 03/10/2010 G. Dudley - Added new program IDs for EOMS
+1041                          %*                        5349,5350,5351,5352,5353,5354,5355
+1042       				   % * 09Sept2010 D.Palmer - Added program id 5371 for Pharmacy Advisor
+1043                          %*========================================================SASDOC*;
+1044       		     	  %if &program_id=73 %then %do;
+1045                          %let file_name_main=&adhoc_root./hercules/rtml_t_&init_id._&phase_id._&com_cd._&file_id;
+1046       		     	  %end;
+1047                   %else
+1048       		     	  %if (&PROGRAM_ID=5252 or &PROGRAM_ID=5253 or &PROGRAM_ID=5254 or &PROGRAM_ID=5255 or &PROGRAM_ID=5256 or
+1048     ! &PROGRAM_ID=5270 or &PROGRAM_ID=5296 or &PROGRAM_ID=5297 or
+1049                        &PROGRAM_ID=5349 or &PROGRAM_ID=5350 or &PROGRAM_ID=5351 or &PROGRAM_ID=5352 or &PROGRAM_ID=5353 or
+1049     ! &PROGRAM_ID=5354 or &PROGRAM_ID=5355 or &PROGRAM_ID=5371)
+1050                   %then %do;
+1051                          %let file_name_main=&adhoc_root./hercules/eoms_t_&init_id._&phase_id._&com_cd._&file_id;
+1052       		     	  %end;
+1053                   %else
+1054       		     	  %if (&PROGRAM_ID=5369)
+1055                   %then %do;
+1056                          %let file_name_main=&adhoc_root./hercules/abpd_t_&init_id._&phase_id._&com_cd._&file_id;
+1057       		     	  %end;
+1058       		     	  %else %do;
+1059                          %let file_name_main=&adhoc_root./hercules/t_&init_id._&phase_id._&com_cd._&file_id;
+1060       		     	  %end;
+1061       		     	  %IF &FILE_SEQ_NB.=1 %THEN %LET file_name=&file_name_main.;
+1062       		     	  %ELSE 					%LET file_name=&file_name_main._&FILE_SEQ_NB.;
+1063       	
+1064                          %if &_destination_type_cd=0 %then
+1065       		     			%do;
+1066                            %let _first_row_col_names=1;
+1067                            %let _col_delimiter=%str(|);
+1068                          		%end; /* End of do-group for &_destination_type_cd=0 */
+1069                          %else
+1070       		     			%do;
+1071                            %let _first_row_col_names=0;
+1072                            %let _col_delimiter=%str();
+1073                          		%end; /* End of do-group for &_destination_type_cd NE 0 */
+1074       
+1075       		    %if &_destination_cd=8 and (&PROGRAM_ID=5252 or &PROGRAM_ID=5253 or &PROGRAM_ID=5254 or &PROGRAM_ID=5255 or
+1075     ! &PROGRAM_ID=5256 or &PROGRAM_ID=5270 or &PROGRAM_ID=5296 or &PROGRAM_ID=5297 or
+1076                                           &PROGRAM_ID=5349 or &PROGRAM_ID=5350 or &PROGRAM_ID=5351 or &PROGRAM_ID=5352 or
+1076     ! &PROGRAM_ID=5353 or &PROGRAM_ID=5354 or &PROGRAM_ID=5355 or &PROGRAM_ID=5371)
+1077               %then %do;
+1078       
+1079       			%sftp_sas_to_txt(tbl_in=work.final,
+1080       						   ds_opts=&_ds_opts,
+1081       						   file_out=&file_name..txt,
+1082       						   layout_out=&file_name..txt.layout,
+1083       						   rhost=&ftp_host,
+1084       						   rdir=&destination_sub_dir,
+1085       						   ruser=&ftp_user,
+1086       						   send_ok_file=&_send_ok_file,
+1087       						   send_layout=&_send_layout,
+1088       						   compress_file=&_compress_file,
+1089       						   first_row_col_names=&_first_row_col_names,
+1090       						   col_delimiter=&_col_delimiter
+1091       						  );
+21                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+1092       
+1093       
+1094       
+1095       			   %end;
+1096       			%else  %do;
+1097       
+1098       				   %ftp_sas_to_txt(tbl_in=work.final,
+1099       						   ds_opts=&_ds_opts,
+1100       						   file_out=&file_name..txt,
+1101       						   layout_out=&file_name..txt.layout,
+1102       						   rhost=&ftp_host,
+1103       						   rdir=&destination_sub_dir,
+1104       						   send_ok_file=&_send_ok_file,
+1105       						   send_layout=&_send_layout,
+1106       						   compress_file=&_compress_file,
+1107       						   first_row_col_names=&_first_row_col_names,
+1108       						   col_delimiter=&_col_delimiter
+1109       						  );
+1110       			 %end;
+1111       	
+1112                     %end; /* End of do-group for &_destination_cd^=2 */
+1113                     %else  %do;
+1114       	           %***** All Zeus-bound files will be SAS datasets. *****;
+1115                          %let librc=%sysfunc(libname(_tmpout,&destination_sub_dir));
+1116       				   %let librc = 0;
+1117                          %if &librc=0 %then %do;
+1118       
+1119                               %LET copy_ok=0;
+1120       
+1121                               proc sql noprint;
+1122       		          create table _tmpout.%scan(&ds_pnd,2,.) as
+1123       		          select  distinct *
+1124       		          from work.final
+1125                               quit;
+1126       
+1127                               %IF &SQLRC=0 %THEN  %LET copy_ok=1;
+1128       
+1129                               %*SASDOC=============================================================;
+1130                               %*  May  2007    - Brian Stropich
+1131                               %*  For file destination ZEUS, the release files will be exported to the
+1132                               %*  log folder of the program id which is known as zeus_root (i.e., log_dir)
+1133                               %*  for the program.
+1134                               %*  09Sept2010 D. Palmer - Added program id 5371 for Pharmacy Advisor
+1135                               %*============================================================SASDOC*;
+1136                               %let zeus_root=&LOG_DIR.;
+1137       
+1138       	                %if &program_id=73 %then %do;
+1139                                 %let file_name_main=&zeus_root./rtml_t_&init_id._&phase_id._&com_cd._&file_id;
+1140       	                %end;
+1141                         %else
+1142             		     	  %if (&PROGRAM_ID=5252 or &PROGRAM_ID=5253 or &PROGRAM_ID=5254 or &PROGRAM_ID=5255 or &PROGRAM_ID=5256 or
+1142     ! &PROGRAM_ID=5270 or &PROGRAM_ID=5296 or &PROGRAM_ID=5297 or
+1143                              &PROGRAM_ID=5349 or &PROGRAM_ID=5350 or &PROGRAM_ID=5351 or &PROGRAM_ID=5352 or &PROGRAM_ID=5353
+1143     ! or &PROGRAM_ID=5354 or &PROGRAM_ID=5355 or &PROGRAM_ID=5371)
+1144                         %then %do;
+1145                                %let file_name_main=&zeus_root./hercules/coe_t_&init_id._&phase_id._&com_cd._&file_id;
+1146             		     	  %end;
+1147       	                %else %do;
+22                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+1148                                 %let file_name_main=&zeus_root./t_&init_id._&phase_id._&com_cd._&file_id;
+1149       	                %end;
+1150       	
+1151       	                %if &FILE_SEQ_NB.=1 %then %let file_name=&file_name_main.;
+1152       	                %else  %let file_name=&file_name_main._&FILE_SEQ_NB.;
+1153       	
+1154                               %if &_destination_type_cd=0 %then  %do;
+1155                                 %let _first_row_col_names=1;
+1156                                 %let _col_delimiter=%str(|);
+1157                               %end; /* End of do-group for &_destination_type_cd=0 */
+1158                               %else %do;
+1159                                 %let _first_row_col_names=0;
+1160                                 %let _col_delimiter=%str();
+1161                               %end; /* End of do-group for &_destination_type_cd NE 0 */
+1162       
+1163                               %ftp_sas_to_txt(tbl_in=work.final,
+1164                                             ds_opts=&_ds_opts,
+1165                                             file_out=&file_name..txt,
+1166                                             layout_out=&file_name..txt.layout,
+1167                                             rhost=&ftp_host,
+1168                                             rdir=&destination_sub_dir,
+1169                                             send_ok_file=&_send_ok_file,
+1170                                             send_layout=&_send_layout,
+1171                                             compress_file=&_compress_file,
+1172                                             first_row_col_names=&_first_row_col_names,
+1173                                             col_delimiter=&_col_delimiter
+1174                                            );
+1175       		        	
+1176       		        %put NOTE:  ********************************************************;
+1177       		        %put NOTE:  Vendor files for destination ZEUS may be found in: &zeus_root. ;
+1178       		        %put NOTE:  ********************************************************;
+1179       		
+1180       		        %***** Deassign the temporary libref for _tmpout *****;
+1181       		        %let librc=%sysfunc(libname(_tmpout,%str()));
+1182       		
+1183                          %end; /* End of do-group &librc=0 */
+1184                          %else %put ERROR: (&SYSMACRONAME): A libname could not be assigned for &destination_sub_dir..;
+1185                   %end; /* End of do-group &_destination_cd=2 */
+1186       
+1187                   %if &ftp_ok NE %then %let transfer_ok=&ftp_ok;
+1188                   %else %let transfer_ok=&copy_ok;
+1189       
+1190                   %if &transfer_ok=0 %then %do;
+1191                        %LET err_fl=1;
+1192                        %LET MESSAGE_FOR_RELEASE_DATA=%STR(ERROR:(&SYSMACRONAME): &ds_pnd could not be transferred to
+1192     ! &_destination(&destination_sub_dir).;);
+1193                   %end;
+1194       		
+1195                   %if &err_fl=1 %then %goto EXIT_RD;
+1196       
+1197                     %*SASDOC=========================================================;
+1198                     %* If the final output file has been successfully FTPd to its
+1199                     %* destination, then update the TPHASE_RVR_FILE.LETTERS_SENT_QY
+1200                     %* field (if the file was for a mailing -- FILE_USAGE_CD=1), the
+1201                     %* RELEASE_TS and the HSU_TS fields are also updated.
+1202                     %*========================================================SASDOC*;
+1203       
+1204                     %*SASDOC=========================================================;
+23                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+1205                     %* 11/24/03: Per P. Wonders: The RELEASE_TS should only be set by
+1206                     %* this program when the FINAL_STATUS_CD=2 (i.e., "final").
+1207                     %*========================================================SASDOC*;
+1208       
+1209       			
+1210       
+1211                     %*SASDOC=========================================================;
+1212                     %* If the final output file has been successfully FTPd to its
+1213                     %* destination, then generate an Initiative Results Overview
+1214       	          %* report (for attachment to notification email).
+1215                     %*========================================================SASDOC*;
+1216       
+1217       			  %IF &FILE_SEQ_NB.=&MAX_FILE_SEQ_NB. %THEN
+1218       			  						%DO;
+1219       			/*
+1220                       %*SASDOC=======================================================;
+1221                       %* If this is a "mailing", then determine the total number of
+1222                       %* letters sent.  This value will be used to update the
+1223                       %* &HERCULES..TPHASE_RVR_FILE.LETTERS_SENT_QY field.
+1224       				%* NOTE: &LETTER_TYPE_QY_CD is assigned by hercules_in.sas.
+1225                       %*======================================================SASDOC*;
+1226       
+1227                       %*SASDOC=======================================================;
+1228                       %* c.j.s 12/10/07
+1229                       %* CHANGED the case statement from when 1 to when (1,2)
+1230                       %* so that data_quality code would be summed for both 1 and 2
+1231       				%*======================================================SASDOC*;
+1232                  */
+1233       
+1234       /*	AK - 25APR2012 - CHANGED THE UPDATE STEP FOR IBEN2.0 FILES TO UPDATE THE TPHASE_RVR_FILE
+1235       	STEP BY USING THE WORK.FINAL DATASET DIRECTLY WHICH HAS THE DATA_QUALITY_CD COLUMN INSTEAD OF
+1236       	USING THE WORK.FINAL_MAIN DATASET WHICH DOES NOT HAVE THE DATA_QUALITY_CD COLUMN;
+1237       	TO PREVENT FAILURE IN IBEN2.0 RELEASES	*/
+1238       /*AK*/
+1239       
+1240        %if (&file_id. = 26 or &file_id. = 35) AND &FILE_SEQ_NB=2 %THEN %DO;
+1241       
+1242         proc sql noprint;	
+1243                       update &hercules..tphase_rvr_file
+1244                       set    %if &file_usage_cd=1 %then %do;
+1245                                letters_sent_qy = (select sum(case data_quality_cd when 1 then letters
+1246                                                                                   when 2 then letters else 0 end)
+1247       /*                         letters_sent_qy = (select sum(case data_quality_cd when (1,2) then letters else 0 end)*/
+1248                                                   from   (select distinct
+1249                                                                  recipient_id,
+1250                                                                  data_quality_cd,
+1251                                                                  %if &letter_type_qy_cd=1 %then %str(count(distinct
+1251     ! subject_id));
+1252                                                                  %else %str(1); as letters
+1253                                                           from   work.final
+1254                                                           %if &letter_type_qy_cd=1
+1255                                                           %then %str(group by recipient_id, data_quality_cd);)),
+1256                              %end;
+1257                              release_ts = (case when &release_status_cd=2 then datetime() else release_ts end),
+1258                              hsu_ts     = datetime()
+1259                       where  initiative_id = &init_id        and
+1260                              phase_seq_nb  = &phase_id       and
+1261                              cmctn_role_cd = &com_cd  ;
+24                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+1262                     quit;
+1263       
+1264       
+1265        %END;
+1266       
+1267       
+1268       %ELSE %DO;
+1269       
+1270       			  proc sql noprint;	
+1271                       update &hercules..tphase_rvr_file
+1272                       set    %if &file_usage_cd=1 %then %do;
+1273                                letters_sent_qy = (select sum(case data_quality_cd when 1 then letters
+1274                                                                                   when 2 then letters else 0 end)
+1275       /*                         letters_sent_qy = (select sum(case data_quality_cd when (1,2) then letters else 0 end)*/
+1276                                                   from   (select distinct
+1277                                                                  recipient_id,
+1278                                                                  data_quality_cd,
+1279                                                                  %if &letter_type_qy_cd=1 %then %str(count(distinct
+1279     ! subject_id));
+1280                                                                  %else %str(1); as letters
+1281                                                           from   work.final_main
+1282                                                           %if &letter_type_qy_cd=1
+1283                                                           %then %str(group by recipient_id, data_quality_cd);)),
+1284                              %end;
+1285                              release_ts = (case when &release_status_cd=2 then datetime() else release_ts end),
+1286                              hsu_ts     = datetime()
+1287                       where  initiative_id = &init_id        and
+1288                              phase_seq_nb  = &phase_id       and
+1289                              cmctn_role_cd = &com_cd  ;
+1290                     quit;
+1291       
+1292       
+1293       %END;
+1294       
+1295       %let update_err_flg=0;
+1296       
+1297                     %if ^&sqlrc %then %put NOTE: (&SYSMACRONAME): TPHASE_RVR_FILE has been updated.;
+1298                     %else %do;
+1299                       %let update_err_flg=1;
+1300                       %put ERROR: (&SYSMACRONAME): TPHASE_RVR_FILE may not have been updated: &sysmsg..;
+1301                     		%end;
+1302       			
+1303       
+1304                     %let RPT_NM=&RPT_ROOT./hercules/general/&init_id._initiative_results_overview.pdf;
+1305                      %include "&PRG_ROOT./hercules/reports/initiative_results_overview.sas";
+1306       
+1307       		*SASDOC -----------------------------------------------------------------------------
+1308       		| ADDED LOGIC TO UPDATE THE &DWHM..T_MLNG TABLE NEEDED FOR IBENEFIT PROACTIVE ACCESS
+1309       		| HEALTH ALERT DATA.
+1310       		| SY - 20OCT2008.
+1311       		+ ----------------------------------------------------------------------------SASDOC*;
+1312       
+1313       		%IF &PROGRAM_ID = 5286 AND &TASK_ID = 33 AND &RELEASE_STATUS_CD = 2 %THEN %DO;
+1314       
+1315       			%macro update_edw_mailing_history;
+1316       			
+1317       			        %LET DB2TMP=TMP&PROGRAM_ID;
+1318       			        LIBNAME &DB2TMP DB2 DSN=&UDBSPRP SCHEMA=&DB2_TMP DEFER=YES;
+25                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+1319       
+1320       				**-----------------------------------------------------------------------;
+1321       				** update pending participants as complete;
+1322       				**-----------------------------------------------------------------------;
+1323       				PROC SQL;
+1324       				  UPDATE &DB2TMP..T_MLNG
+1325       				  SET RLSE_TS     = %SYSFUNC(DATETIME()),
+1326       				      REC_CHG_TS  = %SYSFUNC(DATETIME()),
+1327       				      STUS_CD     = 9
+1328       				  WHERE INITIATIVE_ID = &INITIATIVE_ID
+1329       				    AND STUS_CD  = 1	
+1330       				    AND QL_BNFCY_ID IN (SELECT DISTINCT A.RECIPIENT_ID
+1331       							FROM DATA_PND.&TABLE_PREFIX._1 A
+1332       							WHERE A.DATA_QUALITY_CD = 1);
+1333       				QUIT;
+1334       
+1335       				**-----------------------------------------------------------------------;
+1336       				** update pending participants as data quality code not equal to accepted;
+1337       				** data_quality_cd  - 1=accepted 2=rejected 3=suspended);
+1338       				**-----------------------------------------------------------------------;
+1339       				PROC SQL;
+1340       				  UPDATE &DB2TMP..T_MLNG
+1341       				  SET RLSE_TS     = %SYSFUNC(DATETIME()),
+1342       				      REC_CHG_TS  = %SYSFUNC(DATETIME()),
+1343       				      STUS_CD     = 3
+1344       				  WHERE INITIATIVE_ID = &INITIATIVE_ID
+1345       				    AND STUS_CD  = 1	
+1346       				    AND QL_BNFCY_ID IN (SELECT DISTINCT A.RECIPIENT_ID
+1347       							FROM DATA_PND.&TABLE_PREFIX._1 A
+1348       							WHERE A.DATA_QUALITY_CD NE 1);
+1349       				QUIT;
+1350       				
+1351       				**-----------------------------------------------------------------------;
+1352       				** update participants as removed by clinical ops;
+1353       				**-----------------------------------------------------------------------;				
+1354       				PROC SQL;
+1355       				  UPDATE &DB2TMP..T_MLNG
+1356       				  SET REC_CHG_TS  = %SYSFUNC(DATETIME()),
+1357       				      STUS_CD     = 4
+1358       				  WHERE INITIATIVE_ID = &INITIATIVE_ID
+1359       				    AND STUS_CD NOT IN (2, 3, 9);  ** 2=NOT ELIGIBLE, 3=DATA QUALITY CODE NOT 1, 9=COMPLETE ;
+1360       				QUIT;
+1361       
+1362       
+1363       			%mend update_edw_mailing_history;
+1364       			%update_edw_mailing_history;
+1365       
+1366       		%END;
+1367       
+1368       			
+1369                     %*SASDOC=========================================================;
+1370                     %* If the final output file has been successfully FTPd to its
+1371                     %* destination and the Initiative Results Overview report has been
+1372                     %* generated, send notification emails to the FTP contact at the
+1373                     %* vendor site (AUX_TAB.SET_FTP.NOTIFY_EMAIL), if appropriate.
+1374                     %*
+1375                     %* NOTE: The file layout and Initiative Results Overview report
+1376                     %*       are sent as attachments to the email.
+26                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+1377                     %*========================================================SASDOC*;
+1378       
+1379                       %*SASDOC=======================================================;
+1380                       %* Who gets the emails (Part 1)?  If the file has been
+1381       				%* "autoreleased", the user who scheduled the job should be
+1382                       %* notified (TPHASE_RVR_FILE.HSU_USR_ID) -- otherwise, the user
+1383                       %* who released the file gets the notifications (TINITIATIVE_PHASE.
+1384                       %* HSU_USER_ID).  The autorelease process will set a macro
+1385                       %* variable, &AUTORELEASE, to 1 if called/applicable.  So, the
+1386                       %* &AUTORELEASE will determine which user to notify.
+1387                       %*======================================================SASDOC*;
+1388       
+1389                         %if &autorelease=1 %then
+1390       								%do;
+1391                           proc sql noprint;
+1392                             select hsc_usr_id,
+1393       			     			 hsu_usr_id
+1394                             into   :hsc_usr_id,
+1395       			     			 :hsu_usr_id
+1396                             from   &hercules..tinitiative_phase
+1397                             where  initiative_id = &init_id  and
+1398                                    phase_seq_nb  = &phase_id;
+1399                           quit;
+1400                         				%end; /* End of do-group &autorelease=1 */
+1401       
+1402        		
+1403               %*SASDOC=======================================================;
+1404               %* Who gets the emails (Part 2)?  If there is an email address
+1405       		%* specified in the AUX_TAB.SET_FTP.NOTIFY_EMAIL field, then
+1406       		%* this address becomes the "to" address and the internal
+1407       		%* user IDs/addresses are moved to the "cc" address.
+1408               %*======================================================SASDOC*;
+1409               PROC SQL NOPRINT;
+1410           	   SELECT QUOTE(TRIM(email)) INTO :_em_to_user SEPARATED BY ' '
+1411           		FROM ADM_LKP.ANALYTICS_USERS
+1412           		 WHERE UPCASE(QCP_ID) IN ("&hsu_usr_id");
+1413        		QUIT;
+1414       
+1415       		PROC SQL NOPRINT;
+1416           	   SELECT QUOTE(TRIM(email)) INTO :_em_c_user SEPARATED BY ' '
+1417           		FROM ADM_LKP.ANALYTICS_USERS
+1418           		 WHERE UPCASE(QCP_ID) IN ("&hsc_usr_id");
+1419        		QUIT;
+1420       
+1421       
+1422       		%if &vendor_email NE %STR() %then
+1423       					%do;
+1424       		  %let _em_to="&vendor_email";
+1425       		  %let _em_cc=&_em_to_user;
+1426                       	%end;
+1427       		%else
+1428       					%do;	
+1429       		  %let _em_to=&_em_to_user;
+1430       
+1431                 %*SASDOC=====================================================;
+1432                 %* Who gets the emails (Part 3)?  If the file is AUTORELEASED,
+1433       		  %* then the TINITIATIVE_PHASE.HSC_USR_ID is "copied" on the
+1434       		  %* email if it is not QCPAP020 (production support) and is
+27                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+1435       		  %* not the same as the HSU_USR_ID.  NOTE: &HSC_USR_ID is reset
+1436       		  %* if "autoreleased" in an earlier step to reset &HSU_USR_ID.
+1437                 %*====================================================SASDOC*;
+1438       
+1439       		  %if %upcase(&hsc_usr_id)^=QCPAP020 and %upcase(&hsc_usr_id)^=%upcase(&hsu_usr_id)
+1440       		  %then %let _em_cc=&_em_c_user;
+1441       		  %else %let _em_cc=%str();
+1442       					%end;
+1443       		%if %sysfunc(fileexist(&RPT_NM)) NE 1 %then
+1444       					%DO;
+1445       				%LET err_fl=1;
+1446       				%LET MESSAGE_FOR_RELEASE_DATA=%STR(ERROR: (&SYSMACRONAME): The Initiative Results Overview could not be generated.);
+1447       					%END;
+1448       			 %IF &err_fl=1 %THEN %GOTO EXIT_RD;
+1449                %let _task_name=%upcase(%scan(&ds_pnd,2,%str(.)));
+1450       
+1451       		%if &_destination_cd=2 %then %let file_name=%scan(&ds_pnd,2,%str(.));
+1452       
+1453       		%let _fname_root=%scan(%sysfunc(reverse(%bquote(&file_name))),1,%str(/));
+1454       		%let _fname_root=%sysfunc(reverse(%bquote(&_fname_root)));
+1455               %if &_destination_cd=2 %then %let _fname=%bquote(&_fname_root..sas7bdat);
+1456       		%else %let _fname=%bquote(&_fname_root..txt);
+1457                %if &_compress_file %then
+1458       		%let _fname=&_fname..Z;
+1459       
+1460       		%IF &err_fl=0 %THEN
+1461       					 %DO;
+1462       	    %LET release_data_ok=1;
+1463       		%let _em_msg=%bquote(&_task_name has been processed and has completed successfully.  The file &_fname can be found on
+1463     ! %upcase(&FTP_HOST) in the &destination_sub_dir directory.  Please see the attachment);
+1464       		%if &_send_layout %then %let _em_msg=%bquote(&_em_msg.(s));
+1465       		%let _em_msg=%bquote(&_em_msg for);
+1466       		%if &_send_layout %then %let _em_msg=%bquote(&_em_msg layout information and);
+1467       		%let _em_msg=%bquote(&_em_msg an Initiative Results Overview Report.);
+1468       
+1469               %if &_send_layout %then %let _em_attach="&file_name..txt.layout" "&RPT_NM";
+1470       		%else %let _em_attach="&RPT_NM";
+1471       
+1472                       %email_parms(EM_TO=&_EM_TO,
+1473       			      			 EM_CC=&_EM_CC,
+1474       			      			 EM_SUBJECT=Task %upcase(&_task_name) has been processed successfully,
+1475       			      			 EM_MSG=&_EM_MSG,
+1476                                    EM_ATTACH=&_EM_ATTACH);
+1477                       %*SASDOC=======================================================;
+1478                       %* Set the global RELEASE_DATA_OK macro variable to signal a
+1479                       %* successfull "release" and transfer.  This variable is
+1480                       %* available as a return code to the calling program/wrapper.
+1481                       %*======================================================SASDOC*;
+1482       			%END; /* End of do-group for release_data_ok=1 */
+1483       		%END; /* End of do-group for &FILE_SEQ_NB.=&MAX_FILE_SEQ_NB. */
+1484       
+1485       %EXIT_RD:;
+1486        %END; /* END OF FILE_SEQ_NB LOOP */
+1487       
+1488       %IF &err_fl=1 %THEN
+1489       					%DO;
+1490       			%PUT err_fl=1;
+1491       			%LET release_data_ok=0;
+28                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+1492       			%PUT MESSAGE_FOR_RELEASE_DATA=&MESSAGE_FOR_RELEASE_DATA;
+1493       					%END;
+1494       %put _all_;
+1495       %mend release_data_sb;
+1496       
+1497           %release_data_sb(init_id=&init_id, phase_id=&phase_id, com_cd=&com_cd);
+1498       
+1499         %*SASDOC=====================================================================;
+1500         %* Call update_request_ts to signal the start of executing file release in batch
+1501         %*
+1502         %*====================================================================SASDOC*;
+1503       /*%update_request_ts(complete);*/
+1504       
+1505         %*SASDOC=====================================================================;
+1506         %* Redirect the log output back to its default.
+1507         %*====================================================================SASDOC*;
+1508       
+1509         %put NOTE: (&SYSMACRONAME): Re-routing log output back to default.;
+1510       
+1511         proc printto;
+1512         run;
+1513       
+1514       %mend file_release_wrapper_sb;
+1515       
+1516       %include '/user1/qcpap020/autoexec_new.sas';
+NOTE: Libref CLAIMSA was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+NOTE: Libref QCPAP020 was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+NOTE: Libref EGTASK was successfully assigned as follows: 
+      Levels:           1
+      Engine(1):        V9 
+      Physical Name(1): /sas/saswork/SAS_work4DE2015400CC_prdsas1
+    SAS (r) Proprietary Software Release 9.1  TS1M3
+
+ SASAUTOS=("/hercprod/prg/hercules/macros" "/PRG/sasprod1/hercules/macros"  '!SASROOT/sasautos' '/PRG/sasprod1/sas_macros')
+                   Search list for autocall macros
+1646       
+1647       %set_sysmode(mode=prod);
+WARNING: Apparent symbolic reference SYSMODE not resolved.
+NOTE: Running from Hercules Macro library herc&sysmode
+NOTE: &SYSMODE=prod
+NOTE: &PRG_ROOT=/hercprod/prg
+NOTE: &DATA_ROOT=/hercprod/data
+NOTE: &RPT_ROOT=/hercprod/report_doc
+1648       
+1649       options sysparm='INITIATIVE_ID=14758 PHASE_SEQ_NB=1 REQUEST_ID= REPORT_ID=999 DOCUMENT_LOC_CD=1 CMCTN_ROLE_CD=1
+1649     ! HSC_USR_ID=QCPI208';
+1650       
+1651       %INCLUDE "/herc&sysmode/prg/hercules/hercules_in.sas";
+NOTE: Libref CLAIMSP was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBDWP
+NOTE: Libref HERCULEP was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBDWP
+29                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+NOTE: Libref HERCULES was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+NOTE: Libref QCPAP020 was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+NOTE: Libref CLAIMSA was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+NOTE: Libref SUMMARY was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+NOTE: Libref DSS_CLIN was successfully assigned as follows: 
+      Engine:        ORACLE 
+      Physical Name: GOLD
+NOTE: Libref DSS_HM was successfully assigned as follows: 
+      Engine:        ORACLE 
+      Physical Name: GOLD
+NOTE: Libref DWHM was successfully assigned as follows: 
+      Engine:        ORACLE 
+      Physical Name: GOLD
+NOTE: USER_EDW = dss_herc
+NOTE: PASSWORD_EDW = anlt2web
+NOTE: GOLD = GOLD user=dss_herc pw=anlt2web
+NOTE: GOLD_HA = GOLD USER=qcpap020 PASSWORD=happy123
+NOTE: Libref AUX_TAB was successfully assigned as follows: 
+      Engine:        V9 
+      Physical Name: /hercprod/data/hercules/auxtables
+NOTE: Libref ADM_LKP was successfully assigned as follows: 
+      Engine:        V9 
+      Physical Name: /hercprod/data/Admin/auxtable
+NOTE: (GETPARMS): Parameter: INITIATIVE_ID = 14758
+NOTE: (GETPARMS): Parameter: PHASE_SEQ_NB = 1
+NOTE: (GETPARMS): Parameter: REQUEST_ID =
+NOTE: (GETPARMS): Parameter: REPORT_ID = 999
+NOTE: (GETPARMS): Parameter: DOCUMENT_LOC_CD = 1
+NOTE: (GETPARMS): Parameter: CMCTN_ROLE_CD = 1
+NOTE: (GETPARMS): Parameter: HSC_USR_ID = QCPI208
+WARNING: Variable DSPLY_CLT_SETUP_CD already exists on file WORK.HERC_PARMS.
+NOTE: Compressing data set WORK.HERC_PARMS increased size by 100.00 percent. 
+      Compressed is 2 pages; un-compressed would require 1 pages.
+NOTE: Table WORK.HERC_PARMS created, with 1 rows and 16 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           1.25 seconds
+      cpu time            0.13 seconds
+      
+
+
+NOTE: There were 1 observations read from the data set WORK.HERC_PARMS.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 1 observations read from the data set WORK.HERC_PARMS.
+NOTE: The data set WORK.TRNS_PARMS has 13 observations and 2 variables.
+30                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+NOTE: Compressing data set WORK.TRNS_PARMS increased size by 100.00 percent. 
+      Compressed is 2 pages; un-compressed would require 1 pages.
+NOTE: PROCEDURE TRANSPOSE used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Compressing data set WORK.CMCTN_CD_DECODE increased size by 100.00 percent. 
+      Compressed is 2 pages; un-compressed would require 1 pages.
+NOTE: Table WORK.CMCTN_CD_DECODE created, with 13 rows and 3 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.06 seconds
+      cpu time            0.04 seconds
+      
+
+
+NOTE:
+      PARAMETER SUMMARY FOR INITIATIVE 14758 - 85903 ALON SWSC NON-CDH (PROGRAM 5259)
+      _______________________________________________________
+
+      CODE_NAME            CODE   ENGIN_DECODE
+      ----------           -----  --------------
+      DATA_CLEANSING_CD      2    REJECT ALL                         
+      DESTINATION_CD         1    CLINICAL OPERATIONS                
+      DFLT_INCLSN_IN         0    n/a                                
+      DFL_CLT_INC_EXU_IN     0    n/a                                
+      DOCUMENT_LOC_CD        1    INITIATIVE                         
+      DRG_DEFINITION_CD      1    INITIATIVE                         
+      DSPLY_CLT_SETUP_CD     1    CLIENT SPECIFIC                    
+      EXT_DRUG_LIST_IN       0    n/a                                
+      LETTER_TYPE_QY_CD      2    RECEIVER ONLY                      
+      OVRD_CLT_SETUP_IN      1    APPLICABLE                         
+      PRESCRIBER_PARM_IN     0    n/a                                
+      PRTCPNT_PARM_IN        1    APPLICABLE                         
+      TRGT_RECIPIENT_CD      1    PARTICIPANT                        
+      _______________________________________________________
+NOTE:
+NOTE: There were 13 observations read from the data set WORK.CMCTN_CD_DECODE.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Table WORK.CMCTN_CD_DECODE has been dropped.
+NOTE: Table WORK.HERC_PARMS has been dropped.
+NOTE: Table WORK.TRNS_PARMS has been dropped.
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: Libref TMP5259 was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+NOTE: Libref DSS_HERC was successfully assigned as follows: 
+      Engine:        ORACLE 
+      Physical Name: GOLD
+31                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+*** folder assignments ***
+*** folder assignments ***
+*** folder assignments ***
+
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+err_cd=0
+
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+err_cd=0
+
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+err_cd=0
+
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+err_cd=0
+
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+err_cd=0
+
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+err_cd=0
+
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+err_cd=0
+NOTE: Libref DATA_PND was successfully assigned as follows: 
+      Engine:        V9 
+      Physical Name: /hercprod/data/hercules/5259/pending
+NOTE: Libref DATA_RES was successfully assigned as follows: 
+      Engine:        V9 
+      Physical Name: /hercprod/data/hercules/5259/results
+32                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+NOTE: Libref DATA_ARC was successfully assigned as follows: 
+      Engine:        V9 
+      Physical Name: /hercprod/data/hercules/5259/archive
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.02 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 1 observations read from the data set AUX_TAB.SET_FTP.
+      WHERE DESTINATION_CD=1;
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+
+NOTE: There were 1 observations read from the data set AUX_TAB.SET_FTP.
+      WHERE (DESTINATION_ROOT_DIR='PROD') and DESTINATION_CD in (98, 99);
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.00 seconds
+      
+
+NOTE: EDW_FTP_HOST = dmadom4
+NOTE: EDW_FTP_USER = apdsftp1
+NOTE: EDW_FTP_PASS = apdsftp1
+NOTE: GOLD_HA = GOLD USER=qcpap020 PASSWORD=happy123
+NOTE: Compression was disabled for data set WORK.PLATFORMS because compression overhead would increase the size of the data set.
+NOTE: Table WORK.PLATFORMS created, with 1 rows and 1 columns.
+
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.01 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: There were 1 observations read from the data set WORK.PLATFORMS.
+NOTE: The data set WORK.PLATFORMS has 1 observations and 1 variables.
+NOTE: PROCEDURE SORT used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+
+NOTE: Numeric values have been converted to character values at the places given by: (Line):(Column).
+      2182:162   
+NOTE: There were 1 observations read from the data set WORK.PLATFORMS.
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      cpu time            0.01 seconds
+      
+
+NOTE: QL_ADJ = 0
+NOTE: RX_ADJ = 1
+NOTE: RE_ADJ = 0
+NOTE: ADJ_ENGINE_CD1 = 0
+NOTE: ADJ_ENGINE_CD2 =            2
+33                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+NOTE: ADJ_ENGINE_CD3 = 0
+2184       
+2185       options fullstimer mprint mlogic symbolgen source2 mprintnest mlogicnest;
+2186       
+2187       %file_release_wrapper_sb;
+MLOGIC(FILE_RELEASE_WRAPPER_SB):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB):  Parameter INIT_ID has value &initiative_id
+MLOGIC(FILE_RELEASE_WRAPPER_SB):  Parameter PHASE_ID has value &phase_seq_nb
+MLOGIC(FILE_RELEASE_WRAPPER_SB):  Parameter COM_CD has value &cmctn_role_cd
+MLOGIC(FILE_RELEASE_WRAPPER_SB):  Parameter DOC_CD has value &document_loc_cd
+MPRINT(FILE_RELEASE_WRAPPER_SB):   options replace;
+MLOGIC(FILE_RELEASE_WRAPPER_SB):  %LET (variable name is INIT_ID)
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/cmpres.sas
+SYMBOLGEN:  Macro variable INIT_ID resolves to &initiative_id
+SYMBOLGEN:  Macro variable INITIATIVE_ID resolves to 14758
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  Parameter TEXT has value 14758
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  %LOCAL  I
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  %LET (variable name is I)
+SYMBOLGEN:  Macro variable TEXT resolves to 14758
+SYMBOLGEN:  Macro variable I resolves to 0
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  %DO %WHILE(&i^=0) loop beginning; condition is FALSE.  Loop will not be executed.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/left.sas
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/qtrim.sas
+SYMBOLGEN:  Macro variable TEXT resolves to 14758
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  Parameter VALUE has value 14758
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %LOCAL  I
+SYMBOLGEN:  Macro variable VALUE resolves to 14758
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %DO loop beginning; index variable I; start value is 5; stop value is 1; by 
+      value is -1.  
+SYMBOLGEN:  Macro variable VALUE resolves to 14758
+SYMBOLGEN:  Macro variable I resolves to 5
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %IF condition %qsubstr(&value,&i,1)^=  is TRUE
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %GOTO trimmed (label resolves to TRIMMED).
+SYMBOLGEN:  Macro variable I resolves to 5
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %IF condition &i>0 is TRUE
+SYMBOLGEN:  Macro variable VALUE resolves to 14758
+SYMBOLGEN:  Macro variable I resolves to 5
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  Ending execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  Parameter TEXT has value 14758
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %LOCAL  I
+SYMBOLGEN:  Macro variable TEXT resolves to 14758
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %IF condition %length(&text)=0 is FALSE
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %LET (variable name is I)
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  This macro was compiled from the autocall file 
+      /opt/sas/sas91/sasautos/verify.sas
+SYMBOLGEN:  Macro variable TEXT resolves to 14758
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Parameter TEXT has value 14758
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Parameter TARGET has value  
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %LOCAL  I
+SYMBOLGEN:  Macro variable TEXT resolves to 14758
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable TARGET resolves to  
+34                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %IF condition %length(&text)=0 OR %length(&target)=0 is FALSE
+SYMBOLGEN:  Macro variable TEXT resolves to 14758
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %DO loop beginning; index variable I; start value is 1; stop value is 5; by 
+      value is 1.  
+SYMBOLGEN:  Macro variable TARGET resolves to  
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable TEXT resolves to 14758
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %IF condition NOT %index(&target,%qsubstr(&text,&i,1)) is TRUE
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %GOTO verfnd (label resolves to VERFND).
+SYMBOLGEN:  Macro variable I resolves to 1
+SYMBOLGEN:  Macro variable TEXT resolves to 14758
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %IF condition &i>%length(&text) is FALSE
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Ending execution.
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %IF condition &i is TRUE
+SYMBOLGEN:  Macro variable TEXT resolves to 14758
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  Ending execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  Ending execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB):  %LET (variable name is PHASE_ID)
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/cmpres.sas
+SYMBOLGEN:  Macro variable PHASE_ID resolves to &phase_seq_nb
+SYMBOLGEN:  Macro variable PHASE_SEQ_NB resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  Parameter TEXT has value 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  %LOCAL  I
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  %LET (variable name is I)
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Macro variable I resolves to 0
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  %DO %WHILE(&i^=0) loop beginning; condition is FALSE.  Loop will not be executed.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/left.sas
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/qtrim.sas
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  Parameter VALUE has value 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %LOCAL  I
+SYMBOLGEN:  Macro variable VALUE resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %DO loop beginning; index variable I; start value is 1; stop value is 1; by 
+      value is -1.  
+SYMBOLGEN:  Macro variable VALUE resolves to 1
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %IF condition %qsubstr(&value,&i,1)^=  is TRUE
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %GOTO trimmed (label resolves to TRIMMED).
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %IF condition &i>0 is TRUE
+SYMBOLGEN:  Macro variable VALUE resolves to 1
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  Ending execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  Parameter TEXT has value 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %LOCAL  I
+35                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %IF condition %length(&text)=0 is FALSE
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %LET (variable name is I)
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  This macro was compiled from the autocall file 
+      /opt/sas/sas91/sasautos/verify.sas
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Parameter TEXT has value 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Parameter TARGET has value  
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %LOCAL  I
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable TARGET resolves to  
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %IF condition %length(&text)=0 OR %length(&target)=0 is FALSE
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %DO loop beginning; index variable I; start value is 1; stop value is 1; by 
+      value is 1.  
+SYMBOLGEN:  Macro variable TARGET resolves to  
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %IF condition NOT %index(&target,%qsubstr(&text,&i,1)) is TRUE
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %GOTO verfnd (label resolves to VERFND).
+SYMBOLGEN:  Macro variable I resolves to 1
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %IF condition &i>%length(&text) is FALSE
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Ending execution.
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %IF condition &i is TRUE
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  Ending execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  Ending execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB):  %LET (variable name is COM_CD)
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/cmpres.sas
+SYMBOLGEN:  Macro variable COM_CD resolves to &cmctn_role_cd
+SYMBOLGEN:  Macro variable CMCTN_ROLE_CD resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  Parameter TEXT has value 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  %LOCAL  I
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  %LET (variable name is I)
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Macro variable I resolves to 0
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  %DO %WHILE(&i^=0) loop beginning; condition is FALSE.  Loop will not be executed.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/left.sas
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/qtrim.sas
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  Parameter VALUE has value 1
+36                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %LOCAL  I
+SYMBOLGEN:  Macro variable VALUE resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %DO loop beginning; index variable I; start value is 1; stop value is 1; by 
+      value is -1.  
+SYMBOLGEN:  Macro variable VALUE resolves to 1
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %IF condition %qsubstr(&value,&i,1)^=  is TRUE
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %GOTO trimmed (label resolves to TRIMMED).
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %IF condition &i>0 is TRUE
+SYMBOLGEN:  Macro variable VALUE resolves to 1
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  Ending execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  Parameter TEXT has value 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %LOCAL  I
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %IF condition %length(&text)=0 is FALSE
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %LET (variable name is I)
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  This macro was compiled from the autocall file 
+      /opt/sas/sas91/sasautos/verify.sas
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Parameter TEXT has value 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Parameter TARGET has value  
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %LOCAL  I
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable TARGET resolves to  
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %IF condition %length(&text)=0 OR %length(&target)=0 is FALSE
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %DO loop beginning; index variable I; start value is 1; stop value is 1; by 
+      value is 1.  
+SYMBOLGEN:  Macro variable TARGET resolves to  
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %IF condition NOT %index(&target,%qsubstr(&text,&i,1)) is TRUE
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %GOTO verfnd (label resolves to VERFND).
+SYMBOLGEN:  Macro variable I resolves to 1
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %IF condition &i>%length(&text) is FALSE
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Ending execution.
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %IF condition &i is TRUE
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  Ending execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  Ending execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB):  %LET (variable name is DOC_CD)
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  Beginning execution.
+37                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/cmpres.sas
+SYMBOLGEN:  Macro variable DOC_CD resolves to &document_loc_cd
+SYMBOLGEN:  Macro variable DOCUMENT_LOC_CD resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  Parameter TEXT has value 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  %LOCAL  I
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  %LET (variable name is I)
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Macro variable I resolves to 0
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  %DO %WHILE(&i^=0) loop beginning; condition is FALSE.  Loop will not be executed.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/left.sas
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/qtrim.sas
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  Parameter VALUE has value 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %LOCAL  I
+SYMBOLGEN:  Macro variable VALUE resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %DO loop beginning; index variable I; start value is 1; stop value is 1; by 
+      value is -1.  
+SYMBOLGEN:  Macro variable VALUE resolves to 1
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %IF condition %qsubstr(&value,&i,1)^=  is TRUE
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %GOTO trimmed (label resolves to TRIMMED).
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  %IF condition &i>0 is TRUE
+SYMBOLGEN:  Macro variable VALUE resolves to 1
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.QTRIM):  Ending execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  Parameter TEXT has value 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %LOCAL  I
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %IF condition %length(&text)=0 is FALSE
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %LET (variable name is I)
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Beginning execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  This macro was compiled from the autocall file 
+      /opt/sas/sas91/sasautos/verify.sas
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Parameter TEXT has value 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Parameter TARGET has value  
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %LOCAL  I
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable TARGET resolves to  
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %IF condition %length(&text)=0 OR %length(&target)=0 is FALSE
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %DO loop beginning; index variable I; start value is 1; stop value is 1; by 
+      value is 1.  
+SYMBOLGEN:  Macro variable TARGET resolves to  
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %IF condition NOT %index(&target,%qsubstr(&text,&i,1)) is TRUE
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %GOTO verfnd (label resolves to VERFND).
+38                                                         The SAS System                                17:01 Friday, March 1, 2013
+
+SYMBOLGEN:  Macro variable I resolves to 1
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  %IF condition &i>%length(&text) is FALSE
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT.VERIFY):  Ending execution.
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  %IF condition &i is TRUE
+SYMBOLGEN:  Macro variable TEXT resolves to 1
+SYMBOLGEN:  Some characters in the above value which were subject to macro quoting have been unquoted for printing.
+SYMBOLGEN:  Macro variable I resolves to 1
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES.LEFT):  Ending execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB.CMPRES):  Ending execution.
+MLOGIC(FILE_RELEASE_WRAPPER_SB):  %PUT NOTE: (&SYSMACRONAME): Re-routing log to &log_dir/t_&init_id._&phase_id._&com_cd._rls.log.
+SYMBOLGEN:  Macro variable SYSMACRONAME resolves to FILE_RELEASE_WRAPPER_SB
+SYMBOLGEN:  Macro variable LOG_DIR resolves to /hercprod/data/hercules/5259/logs
+SYMBOLGEN:  Macro variable INIT_ID resolves to 14758
+SYMBOLGEN:  Macro variable PHASE_ID resolves to 1
+SYMBOLGEN:  Macro variable COM_CD resolves to 1
+NOTE: (FILE_RELEASE_WRAPPER_SB): Re-routing log to /hercprod/data/hercules/5259/logs/t_14758_1_1_rls.log.
+SYMBOLGEN:  Macro variable LOG_DIR resolves to /hercprod/data/hercules/5259/logs
+SYMBOLGEN:  Macro variable INIT_ID resolves to 14758
+SYMBOLGEN:  Macro variable PHASE_ID resolves to 1
+SYMBOLGEN:  Macro variable COM_CD resolves to 1
+MPRINT(FILE_RELEASE_WRAPPER_SB):   proc printto log="/hercprod/data/hercules/5259/logs/t_14758_1_1_rls.log" new;
+MPRINT(FILE_RELEASE_WRAPPER_SB):   run;
+
+NOTE: PROCEDURE PRINTTO used (Total process time):
+      real time           0.00 seconds
+      user cpu time       0.00 seconds
+      system cpu time     0.00 seconds
+      Memory                            8k
+      Page Faults                       0
+      Page Reclaims                     4
+      Page Swaps                        0
+      Voluntary Context Switches        0
+      Involuntary Context Switches      0
+      Block Input Operations            0
+      Block Output Operations           0
+      
+
+MLOGIC(FILE_RELEASE_WRAPPER_SB):  Ending execution.
+2311       
+2312       
+2313       *SASDOC-------------------------------------------------------------------------
+2314       | Request Initiative Summary Parm Report
+2315       |   - Request_Initiative_Summary_Parm macro updates/inserts Report Request Row
+2316       |   - Hercules Task Master will see request and will run Initiative_Summary_parm job
+2317       |
+2318       | 	08March2012 R. Smith - Added call to new macro
+2319       +-----------------------------------------------------------------------SASDOC*;
+2320       /*%REQUEST_INITIATIVE_SUMMARY_PARM(INITIATIVE_ID=&INITIATIVE_ID.);*/
+
+ERROR: Errors printed on pages 160,161,164.
+
+NOTE: SAS Institute Inc., SAS Campus Drive, Cary, NC USA 27513-2414
+NOTE: The SAS System used:
+      real time           49:36.84
+      user cpu time       24.80 seconds
+      system cpu time     6.60 seconds
+      Memory                            25356k
+      Page Faults                       53
+      Page Reclaims                     59284
+      Page Swaps                        0
+      Voluntary Context Switches        122557
+      Involuntary Context Switches      18876
+      Block Input Operations            0
+      Block Output Operations           0
+      

@@ -1,0 +1,1014 @@
+ claims_pull_edw_bkup.sas:					                    ,NDC.GPI_GROUP   
+ claims_pull_edw_bkup.sas:	                                    ,NDC.GPI_CLASS);
+ claims_pull_edw_bkup.sas:					                    ,'  ' AS GPI_GROUP   
+ claims_pull_edw_bkup.sas:	                                    ,'  ' AS GPI_CLASS);
+Code_AS.sas:					                    ,NDC.GPI_GROUP   
+Code_AS.sas:	                                    ,NDC.GPI_CLASS);
+Code_AS.sas:					                    ,'  ' AS GPI_GROUP   
+Code_AS.sas:	                                    ,'  ' AS GPI_CLASS);
+addfrmcmctn.sas:            POD.GPI_THERA_CLS_CD AS GPI,
+addfrmcmctn.sas:           CHAR(GPI_GROUP || GPI_CLASS || GPI_SUBCLASS ||
+addfrmcmctn.sas:           GPI_NAME || GPI_NAME_EXTENSION || GPI_FORM || GPI_STRENGTH) as GPI14,
+addfrmcmctn.sas:            A.GPI,
+addfrmcmctn.sas:		   A.GPI14,
+addfrmcmctn.sas:                    CASE SUBSTR(T1.GPI, 1,2)
+addfrmcmctn.sas:                          ELSE SUBSTR(T1.GPI, 1, 2)
+addfrmcmctn.sas:                    CASE SUBSTR(T1.GPI, 3,2)
+addfrmcmctn.sas:                          ELSE SUBSTR(T1.GPI, 3, 2)
+addfrmcmctn.sas:                    CASE SUBSTR(T1.GPI, 5,2)
+addfrmcmctn.sas:                          ELSE SUBSTR(T1.GPI, 5, 2)
+addfrmcmctn.sas:                    CASE SUBSTR(T1.GPI, 7,2)
+addfrmcmctn.sas:                          ELSE SUBSTR(T1.GPI, 7, 2)
+addfrmcmctn.sas:                    CASE SUBSTR(T1.GPI, 9,2)
+addfrmcmctn.sas:                          ELSE SUBSTR(T1.GPI, 5, 2)
+addfrmcmctn.sas:                    CASE SUBSTR(T1.GPI, 11,2)
+addfrmcmctn.sas:                          ELSE SUBSTR(T1.GPI, 11, 2)
+addfrmcmctn.sas:                    CASE SUBSTR(T1.GPI, 13,2)
+addfrmcmctn.sas:                          ELSE SUBSTR(T1.GPI, 13, 2)
+addfrmcmctn.sas:		   GPI14
+additional_fields.sas:	MAX(D.GPI_GROUP||D.GPI_CLASS||D.GPI_SUBCLASS) AS DRUG_TX
+additional_fields.sas: %LET GPI_THERA_CLS_NM_SEL  = %STR (
+additional_fields.sas:	MAX(F.GPI_THERA_CLS_NM) AS GPI_THERA_CLS_NM
+additional_fields.sas: %LET GPI_THERA_CLS_NM  = %STR (
+additional_fields.sas: %LET GPI_THERA_CLS_NM_EXT  = %STR (
+additional_fields.sas:LEFT JOIN	&CLAIMSA..TGPITC_GPI_THR_CLS		F
+additional_fields.sas:  ON E.GPI_THERA_CLS_CD = F.GPI_THERA_CLS_CD
+additional_fields.sas:	  'GPI_THERA_CLS_NM'	=	"&GPI_THERA_CLS_NM"
+additional_fields.sas:	  'GPI_THERA_CLS_NM'	=	"&GPI_THERA_CLS_NM_SEL"
+additional_fields.sas:	  'GPI_THERA_CLS_NM'	=	"&GPI_THERA_CLS_NM_EXT"
+additional_fields2.sas:	MAX(C.GPI_GROUP||C.GPI_CLASS||C.GPI_SUBCLASS) AS DRUG_TX);
+additional_fields2.sas: | Define GPI_THERA_CLS_NM_SEL as one Macro Variable for GPI_THERA_CLS_NM variable.
+additional_fields2.sas: %LET GPI_THERA_CLS_NM_SEL  = %STR (
+additional_fields2.sas:	MAX(E.GPI_THERA_CLS_NM) AS GPI_THERA_CLS_NM
+additional_fields2.sas: | Define GPI_THERA_CLS_NM as Second Macro Variable for GPI_THERA_CLS_NM variable.
+additional_fields2.sas: %LET GPI_THERA_CLS_NM  = %STR (
+additional_fields2.sas: | Define GPI_THERA_CLS_NM_EXT as Third Macro Variable for GPI_THERA_CLS_NM variable.
+additional_fields2.sas: %LET GPI_THERA_CLS_NM_EXT  = %STR (
+additional_fields2.sas: | Define GPI_THERA_CLS_NM_EXT2 as Fourth Macro Variable for GPI_THERA_CLS_NM variable.
+additional_fields2.sas: %LET GPI_THERA_CLS_NM_EXT2  = %STR (
+additional_fields2.sas:LEFT JOIN	&CLAIMSA..TGPITC_GPI_THR_CLS		E
+additional_fields2.sas:  ON D.GPI_THERA_CLS_CD = E.GPI_THERA_CLS_CD
+additional_fields2.sas:	  'GPI_THERA_CLS_NM'	=	"&GPI_THERA_CLS_NM"
+additional_fields2.sas:	  'GPI_THERA_CLS_NM'	=	"&GPI_THERA_CLS_NM_SEL"
+additional_fields2.sas:	  'GPI_THERA_CLS_NM'	=	"&GPI_THERA_CLS_NM_EXT"
+additional_fields2.sas:	  'GPI_THERA_CLS_NM'	=	"&GPI_THERA_CLS_NM_EXT2"
+additional_fields_20080711.sas:	MAX(C.GPI_GROUP||C.GPI_CLASS||C.GPI_SUBCLASS) AS DRUG_TX);
+additional_fields_20080711.sas: | Define GPI_THERA_CLS_NM_SEL as one Macro Variable for GPI_THERA_CLS_NM variable.
+additional_fields_20080711.sas: %LET GPI_THERA_CLS_NM_SEL  = %STR (
+additional_fields_20080711.sas:	MAX(E.GPI_THERA_CLS_NM) AS GPI_THERA_CLS_NM
+additional_fields_20080711.sas: | Define GPI_THERA_CLS_NM as Second Macro Variable for GPI_THERA_CLS_NM variable.
+additional_fields_20080711.sas: %LET GPI_THERA_CLS_NM  = %STR (
+additional_fields_20080711.sas: | Define GPI_THERA_CLS_NM_EXT as Third Macro Variable for GPI_THERA_CLS_NM variable.
+additional_fields_20080711.sas: %LET GPI_THERA_CLS_NM_EXT  = %STR (
+additional_fields_20080711.sas: | Define GPI_THERA_CLS_NM_EXT2 as Fourth Macro Variable for GPI_THERA_CLS_NM variable.
+additional_fields_20080711.sas: %LET GPI_THERA_CLS_NM_EXT2  = %STR (
+additional_fields_20080711.sas:LEFT JOIN	&CLAIMSA..TGPITC_GPI_THR_CLS		E
+additional_fields_20080711.sas:  ON D.GPI_THERA_CLS_CD = E.GPI_THERA_CLS_CD
+additional_fields_20080711.sas:	  'GPI_THERA_CLS_NM'	=	"&GPI_THERA_CLS_NM"
+additional_fields_20080711.sas:	  'GPI_THERA_CLS_NM'	=	"&GPI_THERA_CLS_NM_SEL"
+additional_fields_20080711.sas:	  'GPI_THERA_CLS_NM'	=	"&GPI_THERA_CLS_NM_EXT"
+additional_fields_20080711.sas:	  'GPI_THERA_CLS_NM'	=	"&GPI_THERA_CLS_NM_EXT2"
+claims_output.sas:|				   V_DRUG_DENORM.GPI10_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output.sas:|				   V_DRUG_DENORM.GPI4_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output.sas:|				   GET_NDC.GPI10_CD(IF RESOLVE CLIENT FLAG 0)
+claims_output.sas:|				   GET_NDC.GPI4_CD(IF RESOLVE CLIENT FLAG 0)
+claims_output.sas:|				   V_DRUG_DENORM.GPI10_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output.sas:|				   V_DRUG_DENORM.GPI4_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,10))   AS GPI10_CD
+claims_output.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,4))	AS GPI4_CD
+claims_output.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,10)) AS GPI10_CD
+claims_output.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,4))  AS GPI4_CD
+claims_output.sas:										  ,MAX(SUBSTR(DRG.NDC_CODE,1,10))	AS GPI10_CD
+claims_output.sas:										  ,MAX(SUBSTR(DRG.NDC_CODE,1,4))	AS GPI4_CD
+claims_output_AST.sas:|				   V_DRUG_DENORM.GPI10_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output_AST.sas:|				   V_DRUG_DENORM.GPI4_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output_AST.sas:|				   GET_NDC.GPI10_CD(IF RESOLVE CLIENT FLAG 0)
+claims_output_AST.sas:|				   GET_NDC.GPI4_CD(IF RESOLVE CLIENT FLAG 0)
+claims_output_AST.sas:|				   V_DRUG_DENORM.GPI10_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output_AST.sas:|				   V_DRUG_DENORM.GPI4_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output_AST.sas:											 D.GPI_GROUP||D.GPI_CLASS||D.GPI_SUBCLASS||D.GPI_NAME||D.GPI_NAME_EXTENSION||D.GPI_FORM||
+claims_output_AST.sas:  								             D.GPI_STRENGTH AS GPI_THERA_CLS_CD,
+claims_output_AST.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,10))   AS GPI10_CD
+claims_output_AST.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,4))	AS GPI4_CD
+claims_output_AST.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,10)) AS GPI10_CD
+claims_output_AST.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,4))  AS GPI4_CD
+claims_output_AST.sas:										  ,MAX(SUBSTR(DRG.NDC_CODE,1,10))	AS GPI10_CD
+claims_output_AST.sas:										  ,MAX(SUBSTR(DRG.NDC_CODE,1,4))	AS GPI4_CD
+claims_output_bkup_06182010.sas:|				   V_DRUG_DENORM.GPI10_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output_bkup_06182010.sas:|				   V_DRUG_DENORM.GPI4_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output_bkup_06182010.sas:|				   GET_NDC.GPI10_CD(IF RESOLVE CLIENT FLAG 0)
+claims_output_bkup_06182010.sas:|				   GET_NDC.GPI4_CD(IF RESOLVE CLIENT FLAG 0)
+claims_output_bkup_06182010.sas:|				   V_DRUG_DENORM.GPI10_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output_bkup_06182010.sas:|				   V_DRUG_DENORM.GPI4_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output_bkup_06182010.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,10))   AS GPI10_CD
+claims_output_bkup_06182010.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,4))	AS GPI4_CD
+claims_output_bkup_06182010.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,10)) AS GPI10_CD
+claims_output_bkup_06182010.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,4))  AS GPI4_CD
+claims_output_bkup_06182010.sas:										  ,MAX(SUBSTR(DRG.NDC_CODE,1,10))	AS GPI10_CD
+claims_output_bkup_06182010.sas:										  ,MAX(SUBSTR(DRG.NDC_CODE,1,4))	AS GPI4_CD
+claims_output_test.sas:|				   V_DRUG_DENORM.GPI10_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output_test.sas:|				   V_DRUG_DENORM.GPI4_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output_test.sas:|				   GET_NDC.GPI10_CD(IF RESOLVE CLIENT FLAG 0)
+claims_output_test.sas:|				   GET_NDC.GPI4_CD(IF RESOLVE CLIENT FLAG 0)
+claims_output_test.sas:|				   V_DRUG_DENORM.GPI10_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output_test.sas:|				   V_DRUG_DENORM.GPI4_CD(IF RESOLVE CLIENT FLAG 1)
+claims_output_test.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,10))   AS GPI10_CD
+claims_output_test.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,4))	AS GPI4_CD
+claims_output_test.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,10)) AS GPI10_CD
+claims_output_test.sas:														  ,MAX(SUBSTR(DRUG.DRUG_NDC_ID,1,4))  AS GPI4_CD
+claims_output_test.sas:										  ,MAX(SUBSTR(DRG.NDC_CODE,1,10))	AS GPI10_CD
+claims_output_test.sas:										  ,MAX(SUBSTR(DRG.NDC_CODE,1,4))	AS GPI4_CD
+claims_pull_edw.sas:					                    ,NDC.GPI_GROUP   
+claims_pull_edw.sas:	                                    ,NDC.GPI_CLASS);
+claims_pull_edw.sas:					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw.sas:	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw.sas:						       DRUG.GPI_CODE AS GPI_THERA_CLS_CD,
+claims_pull_edw.sas:/*					NHU_TYPE_CD, DRUG_NDC_ID, DRUG_CATEGORY_ID, GPI_GROUP, GPI_CLASS, DRUG_ABBR_DSG_NM, */
+claims_pull_edw.sas:/*					DRUG_GID, GCN_CODE, GCN_NBR, NHU_TYPE_CD, DRUG_NDC_ID, DRUG_CATEGORY_ID, GPI_GROUP, */
+claims_pull_edw.sas:/*					GPI_CLASS, DRUG_ABBR_DSG_NM, DRUG_ABBR_PROD_NM, DRUG_ABBR_STRG_NM, DRUG_BRAND_CD, */
+claims_pull_edw.sas:%LET NEW_ADD_BASE_COL1=%STR(RX_NB, LAST_DELIVERY_SYS, DISPENSED_QY, DAY_SUPPLY_QY, GPI_THERA_CLS_CD, 
+claims_pull_edw.sas:%LET NEW_ADD_BASE_COL1=%STR(RX_NB, LAST_DELIVERY_SYS, DISPENSED_QY, DAY_SUPPLY_QY, GPI_THERA_CLS_CD, 
+claims_pull_edw.sas:					NHU_TYPE_CD, DRUG_NDC_ID, DRUG_CATEGORY_ID, GPI_GROUP, GPI_CLASS, DRUG_ABBR_DSG_NM, 
+claims_pull_edw.sas:					DRUG_GID, GCN_CODE, GCN_NBR, NHU_TYPE_CD, DRUG_NDC_ID, DRUG_CATEGORY_ID, GPI_GROUP, 
+claims_pull_edw.sas:					GPI_CLASS, DRUG_ABBR_DSG_NM, DRUG_ABBR_PROD_NM, DRUG_ABBR_STRG_NM, DRUG_BRAND_CD, 
+claims_pull_edw1.sas:					                    ,NDC.GPI_GROUP   
+claims_pull_edw1.sas:	                                    ,NDC.GPI_CLASS);
+claims_pull_edw1.sas:					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw1.sas:	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_05262009.sas:					                    ,NDC.GPI_GROUP   
+claims_pull_edw_05262009.sas:	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_05262009.sas:					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_05262009.sas:	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_18aug2009.sas:  					                    ,NDC.GPI_GROUP   
+claims_pull_edw_18aug2009.sas:  	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_18aug2009.sas:  					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_18aug2009.sas:  	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_18aug2009_LL.sas:	  			%LET SELECT_DRUG_SEQ = %STR(,NDC.DRUG_CATEGORY_ID, NDC.GPI_GROUP, NDC.GPI_CLASS);
+claims_pull_edw_18aug2009_LL.sas:	  		 %LET SELECT_DRUG_SEQ = %STR(,59 AS DRUG_CATEGORY_ID, '  ' AS GPI_GROUP, '  ' AS GPI_CLASS);
+claims_pull_edw_24mar2009.sas:					                    ,NDC.GPI_GROUP   
+claims_pull_edw_24mar2009.sas:	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_24mar2009.sas:					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_24mar2009.sas:	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_7827.sas:					                    ,NDC.GPI_GROUP   
+claims_pull_edw_7827.sas:	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_7827.sas:					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_7827.sas:	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_AST.sas:					                    ,NDC.GPI_GROUP   
+claims_pull_edw_AST.sas:	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_AST.sas:					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_AST.sas:	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_AST.sas:						,DRUG.GPI_CODE AS GPI_THERA_CLS_CD
+claims_pull_edw_YM.sas:					                    ,NDC.GPI_GROUP   
+claims_pull_edw_YM.sas:	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_YM.sas:					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_YM.sas:	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_YM.sas:						       DRUG.GPI_CODE AS GPI_THERA_CLS_CD,
+claims_pull_edw_YM.sas:/*					NHU_TYPE_CD, DRUG_NDC_ID, DRUG_CATEGORY_ID, GPI_GROUP, GPI_CLASS, DRUG_ABBR_DSG_NM, */
+claims_pull_edw_YM.sas:/*					DRUG_GID, GCN_CODE, GCN_NBR, NHU_TYPE_CD, DRUG_NDC_ID, DRUG_CATEGORY_ID, GPI_GROUP, */
+claims_pull_edw_YM.sas:/*					GPI_CLASS, DRUG_ABBR_DSG_NM, DRUG_ABBR_PROD_NM, DRUG_ABBR_STRG_NM, DRUG_BRAND_CD, */
+claims_pull_edw_YM.sas:%LET NEW_ADD_BASE_COL1=%STR(RX_NB, LAST_DELIVERY_SYS, DISPENSED_QY, DAY_SUPPLY_QY, GPI_THERA_CLS_CD, 
+claims_pull_edw_YM.sas:%LET NEW_ADD_BASE_COL1=%STR(RX_NB, LAST_DELIVERY_SYS, DISPENSED_QY, DAY_SUPPLY_QY, GPI_THERA_CLS_CD, 
+claims_pull_edw_YM.sas:					NHU_TYPE_CD, DRUG_NDC_ID, DRUG_CATEGORY_ID, GPI_GROUP, GPI_CLASS, DRUG_ABBR_DSG_NM, 
+claims_pull_edw_YM.sas:					DRUG_GID, GCN_CODE, GCN_NBR, NHU_TYPE_CD, DRUG_NDC_ID, DRUG_CATEGORY_ID, GPI_GROUP, 
+claims_pull_edw_YM.sas:					GPI_CLASS, DRUG_ABBR_DSG_NM, DRUG_ABBR_PROD_NM, DRUG_ABBR_STRG_NM, DRUG_BRAND_CD, 
+claims_pull_edw_cltdrg.sas:				                    ,CLTDRG.GPI_GROUP   
+claims_pull_edw_cltdrg.sas:                                    ,CLTDRG.GPI_CLASS);
+claims_pull_edw_cltdrg_14may2010.sas:				                    ,CLTDRG.GPI_GROUP   
+claims_pull_edw_cltdrg_14may2010.sas:                                    ,CLTDRG.GPI_CLASS);
+claims_pull_edw_cltdrg_24mar2009.sas:				                    ,CLTDRG.GPI_GROUP   
+claims_pull_edw_cltdrg_24mar2009.sas:                                    ,CLTDRG.GPI_CLASS);
+claims_pull_edw_cltdrg_gd.sas:				                    ,CLTDRG.GPI_GROUP   
+claims_pull_edw_cltdrg_gd.sas:                                    ,CLTDRG.GPI_CLASS);
+claims_pull_edw_cltdrg_specific.sas:				                    ,CLTDRG.GPI_GROUP   
+claims_pull_edw_cltdrg_specific.sas:                                    ,CLTDRG.GPI_CLASS);
+claims_pull_edw_cltdrg_tst.sas:				                    ,CLTDRG.GPI_GROUP   
+claims_pull_edw_cltdrg_tst.sas:                                    ,CLTDRG.GPI_CLASS);
+claims_pull_edw_gd.sas:					                    ,NDC.GPI_GROUP   
+claims_pull_edw_gd.sas:	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_gd.sas:					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_gd.sas:	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_negfrm.sas:											,NDC.GPI_GROUP   
+claims_pull_edw_negfrm.sas:											,NDC.GPI_CLASS);
+claims_pull_edw_negfrm.sas:											,NDC.GPI_GROUP   
+claims_pull_edw_negfrm.sas:											,NDC.GPI_CLASS);
+claims_pull_edw_negfrm.sas:											,'  ' AS GPI_GROUP   
+claims_pull_edw_negfrm.sas:											,'  ' AS GPI_CLASS);
+claims_pull_edw_negfrm_prod.sas:											,NDC.GPI_GROUP   
+claims_pull_edw_negfrm_prod.sas:											,NDC.GPI_CLASS);
+claims_pull_edw_negfrm_prod.sas:											,NDC.GPI_GROUP   
+claims_pull_edw_negfrm_prod.sas:											,NDC.GPI_CLASS);
+claims_pull_edw_negfrm_prod.sas:											,'  ' AS GPI_GROUP   
+claims_pull_edw_negfrm_prod.sas:											,'  ' AS GPI_CLASS);
+claims_pull_edw_orig_05_17_2010.sas:					                    ,NDC.GPI_GROUP   
+claims_pull_edw_orig_05_17_2010.sas:	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_orig_05_17_2010.sas:					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_orig_05_17_2010.sas:	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_proactive.sas:  					                    ,NDC.GPI_GROUP   
+claims_pull_edw_proactive.sas:  	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_proactive.sas:  					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_proactive.sas:  	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_proactive.sas:				 ,GPI14 
+claims_pull_edw_proactive.sas:				 ,NME.GPI_CODE AS GPI14
+claims_pull_edw_proactive_bkup.sas:  					                    ,NDC.GPI_GROUP   
+claims_pull_edw_proactive_bkup.sas:  	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_proactive_bkup.sas:  					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_proactive_bkup.sas:  	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_rg.sas:					                    ,NDC.GPI_GROUP   
+claims_pull_edw_rg.sas:	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_rg.sas:					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_rg.sas:	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_rg.sas:/*					NHU_TYPE_CD, DRUG_NDC_ID, DRUG_CATEGORY_ID, GPI_GROUP, GPI_CLASS, DRUG_ABBR_DSG_NM, */
+claims_pull_edw_rg.sas:/*					DRUG_GID, GCN_CODE, GCN_NBR, NHU_TYPE_CD, DRUG_NDC_ID, DRUG_CATEGORY_ID, GPI_GROUP, */
+claims_pull_edw_rg.sas:/*					GPI_CLASS, DRUG_ABBR_DSG_NM, DRUG_ABBR_PROD_NM, DRUG_ABBR_STRG_NM, DRUG_BRAND_CD, */
+claims_pull_edw_rg.sas:					NHU_TYPE_CD, DRUG_NDC_ID, DRUG_CATEGORY_ID, GPI_GROUP, GPI_CLASS, DRUG_ABBR_DSG_NM, 
+claims_pull_edw_rg.sas:					DRUG_GID, GCN_CODE, GCN_NBR, NHU_TYPE_CD, DRUG_NDC_ID, DRUG_CATEGORY_ID, GPI_GROUP, 
+claims_pull_edw_rg.sas:					GPI_CLASS, DRUG_ABBR_DSG_NM, DRUG_ABBR_PROD_NM, DRUG_ABBR_STRG_NM, DRUG_BRAND_CD, 
+claims_pull_edw_sb_id4.sas:					                    ,NDC.GPI_GROUP   
+claims_pull_edw_sb_id4.sas:	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_sb_id4.sas:					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_sb_id4.sas:	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_tbd.sas:					                    ,NDC.GPI_GROUP   
+claims_pull_edw_tbd.sas:	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_tbd.sas:					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_tbd.sas:	                                    ,'  ' AS GPI_CLASS);
+claims_pull_edw_tbd.sas:						,DRUG.GPI_CODE                        AS GPI
+claims_pull_edw_tst.sas:					                    ,NDC.GPI_GROUP   
+claims_pull_edw_tst.sas:	                                    ,NDC.GPI_CLASS);
+claims_pull_edw_tst.sas:					                    ,'  ' AS GPI_GROUP   
+claims_pull_edw_tst.sas:	                                    ,'  ' AS GPI_CLASS);
+claims_pull_proactive_cltdrg.sas:				                    ,CLTDRG.GPI_GROUP   
+claims_pull_proactive_cltdrg.sas:                                    ,CLTDRG.GPI_CLASS);
+claims_pull_proactive_cltdrg.sas:						,DRUG.GPI_CODE AS GPI14
+claims_pull_proactive_cltdrg_bkup.sas:				                    ,CLTDRG.GPI_GROUP   
+claims_pull_proactive_cltdrg_bkup.sas:                                    ,CLTDRG.GPI_CLASS);
+clt_spec_drg_lst.sas:						   SUBSTR(B.GPI_CODE,1,2) AS GPI_GROUP,
+clt_spec_drg_lst.sas:						   SUBSTR(B.GPI_CODE,3,2) AS GPI_CLASS,
+clt_spec_drg_lst.sas:						   B.GPI_CODE,
+clt_spec_drg_lst.sas:		                  OR (A.DRUG_ID_TYPE_CD 	= 1 AND A.DRUG_ID = B.GPI_CODE)
+clt_spec_drg_lst.sas:			 DRUG_GID INT, GPI_GROUP CHAR(2), GPI_CLASS CHAR(2),
+clt_spec_drg_lst.sas:			 DRUG_GID, GPI_GROUP, GPI_CLASS,
+clt_spec_drg_lst.sas:			 DRUG_GID, GPI_GROUP, GPI_CLASS,
+clt_spec_drg_lst_LL.sas:		                 END AS GPI_GROUP
+clt_spec_drg_lst_LL.sas:		                 END AS GPI_CLASS
+clt_spec_drg_lst_LL.sas:		                 END AS GPI_SUBCLASS
+clt_spec_drg_lst_LL.sas:		                 END AS GPI_NAME
+clt_spec_drg_lst_LL.sas:		                 END AS GPI_NAME_EXTENSION
+clt_spec_drg_lst_LL.sas:		                 END AS GPI_FORM
+clt_spec_drg_lst_LL.sas:		                 END AS GPI_STRENGTH
+clt_spec_drg_lst_LL.sas:				 DRUG_GID, GPI_GROUP, GPI_CLASS,
+clt_spec_drg_lst_LL.sas:				 DRUG_GID, GPI_GROUP, GPI_CLASS,
+create_program_data_files.sas:        B.GPI14 								AS GPI_CODE,
+create_program_data_files.sas:	 BY QL_BENEFICIARY_ID DRUG_NAME GPI_CODE DELIVERY_SYSTEM_CODE CHRONIC_IN
+create_program_data_files.sas:		 @046 GPI_CODE			$14.
+create_program_data_files_abpd.sas:        B.GPI14 								AS GPI_CODE,
+create_program_data_files_abpd.sas:	 BY QL_BENEFICIARY_ID DRUG_NAME GPI_CODE DELIVERY_SYSTEM_CODE CHRONIC_IN
+create_program_data_files_abpd.sas:		 @046 GPI_CODE			$14.
+create_program_data_files_bkup_092711.sas:        B.GPI14 								AS GPI_CODE,
+create_program_data_files_bkup_092711.sas:	 BY QL_BENEFICIARY_ID DRUG_NAME GPI_CODE DELIVERY_SYSTEM_CODE CHRONIC_IN
+create_program_data_files_bkup_092711.sas:		 @046 GPI_CODE			$14.
+create_program_data_files_gstp.sas:		GPI_THERA_CLS_CD					AS TARGET_GPI_CODE,
+create_program_data_files_gstp.sas:		GPI_THERA_CLS_NM					AS TARGET_GPI_NAME,
+create_program_data_files_gstp.sas:		GPI_THERA_CLS_CD							   AS TARGET_GPI_CODE,
+create_program_data_files_gstp.sas:		GPI_THERA_CLS_NM							   AS TARGET_DRUG_GPI_NAME,
+create_program_data_files_gstp.sas:			TARGET_GPI_CODE		
+create_program_data_files_gstp.sas:			TARGET_GPI_NAME		
+create_program_data_files_gstp.sas:			TARGET_GPI_CODE			
+create_program_data_files_gstp.sas:			TARGET_DRUG_GPI_NAME		
+create_program_data_files_gstp_bkup.sas:		GPI_THERA_CLS_CD					AS TARGET_GPI_CODE,
+create_program_data_files_gstp_bkup.sas:		GPI_THERA_CLS_NM					AS TARGET_GPI_NAME,
+create_program_data_files_gstp_bkup.sas:		GPI_THERA_CLS_CD							   AS TARGET_GPI_CODE,
+create_program_data_files_gstp_bkup.sas:		GPI_THERA_CLS_NM							   AS TARGET_DRUG_GPI_NAME,
+create_program_data_files_gstp_bkup.sas:			TARGET_GPI_CODE		
+create_program_data_files_gstp_bkup.sas:			TARGET_GPI_NAME		
+create_program_data_files_gstp_bkup.sas:			TARGET_GPI_CODE			
+create_program_data_files_gstp_bkup.sas:			TARGET_DRUG_GPI_NAME		
+get_ndc.sas:|                 Join HERCULES Drug IDs with CLAIMS Drug IDs by GPI, NDC-9 or
+get_ndc.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,01,2),'  ') AS GPI_GROUP
+get_ndc.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,03,2),'  ') AS GPI_CLASS
+get_ndc.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,05,2),'  ') AS GPI_SUBCLASS
+get_ndc.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,07,2),'  ') AS GPI_NAME
+get_ndc.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,09,2),'  ') AS GPI_NAME_EXTENSION
+get_ndc.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,11,2),'  ') AS GPI_FORM
+get_ndc.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,13,2),'  ') AS GPI_STRENGTH
+get_ndc.sas:/* if target drug type is GPI. */
+get_ndc.sas:             AND(  (   A.GPI_GROUP          = B.GPI_GROUP)
+get_ndc.sas:                AND(   A.GPI_CLASS          IS NULL
+get_ndc.sas:                    OR A.GPI_CLASS          = B.GPI_CLASS)
+get_ndc.sas:                AND(   A.GPI_SUBCLASS       IS NULL
+get_ndc.sas:                    OR A.GPI_SUBCLASS       = B.GPI_SUBCLASS)
+get_ndc.sas:                AND(   A.GPI_NAME           IS NULL
+get_ndc.sas:                    OR A.GPI_NAME           = B.GPI_NAME)
+get_ndc.sas:                AND(   A.GPI_NAME_EXTENSION IS NULL
+get_ndc.sas:                    OR A.GPI_NAME_EXTENSION = B.GPI_NAME_EXTENSION)
+get_ndc.sas:                AND(   A.GPI_FORM           IS NULL
+get_ndc.sas:                    OR A.GPI_FORM           = B.GPI_FORM)
+get_ndc.sas:                AND(   A.GPI_STRENGTH       IS NULL
+get_ndc.sas:                    OR A.GPI_STRENGTH       = B.GPI_STRENGTH)
+get_ndc.sas:%let GPI_NDC_HIS = &DB2_TMP..&table_prefix._GPI_NDC_HIS;
+get_ndc.sas:%put NOTE: GPI_NDC_HIS = &GPI_NDC_HIS; 
+get_ndc.sas:   		%if (%cmpres(&GPI_NDC_HIS) ne) %then
+get_ndc.sas:		%drop_db2_table(tbl_name=&GPI_NDC_HIS);
+get_ndc.sas:		%PUT NOTE: DROPPING TABLE &GPI_NDC_HIS BECAUSE IT EXISTS;
+get_ndc.sas:   CREATE TABLE &GPI_NDC_HIS
+get_ndc.sas:		   ,GPI_GROUP			CHAR(2)
+get_ndc.sas:		   ,GPI_CLASS			CHAR(2)
+get_ndc.sas:   ALTER TABLE &GPI_NDC_HIS ACTIVATE NOT LOGGED INITIALLY
+get_ndc.sas:      INSERT INTO &GPI_NDC_HIS
+get_ndc.sas:		   ,GPI_GROUP			
+get_ndc.sas:		   ,GPI_CLASS)
+get_ndc.sas:                     ,B.GPI_GROUP
+get_ndc.sas:                     ,B.GPI_CLASS
+get_ndc.sas:				 SELECT DISTINCT GPI_CD
+get_ndc.sas:	   				  			,NULLIF(SUBSTR(GPI_CD,01,2),'  ') AS GPI_GROUP
+get_ndc.sas:                      			,NULLIF(SUBSTR(GPI_CD,03,2),'  ') AS GPI_CLASS
+get_ndc.sas:                      			,NULLIF(SUBSTR(GPI_CD,05,2),'  ') AS GPI_SUBCLASS
+get_ndc.sas:                      			,NULLIF(SUBSTR(GPI_CD,07,2),'  ') AS GPI_NAME
+get_ndc.sas:                      			,NULLIF(SUBSTR(GPI_CD,09,2),'  ') AS GPI_NAME_EXTENSION
+get_ndc.sas:                      			,NULLIF(SUBSTR(GPI_CD,11,2),'  ') AS GPI_FORM
+get_ndc.sas:                      			,NULLIF(SUBSTR(GPI_CD,13,2),'  ') AS GPI_STRENGTH
+get_ndc.sas:	   			 FROM &HERCULES..TPROGRAM_GPI_HIS
+get_ndc.sas:			  		AND (    A.GPI_GROUP          = B.GPI_GROUP)
+get_ndc.sas:              		AND (    A.GPI_CLASS          IS NULL
+get_ndc.sas:                    	OR A.GPI_CLASS          = B.GPI_CLASS)
+get_ndc.sas:              		AND (    A.GPI_SUBCLASS       IS NULL
+get_ndc.sas:                    	OR A.GPI_SUBCLASS       = B.GPI_SUBCLASS)
+get_ndc.sas:              		AND (    A.GPI_NAME           IS NULL
+get_ndc.sas:                    	OR A.GPI_NAME           = B.GPI_NAME)
+get_ndc.sas:              		AND (    A.GPI_NAME_EXTENSION IS NULL
+get_ndc.sas:                    	OR A.GPI_NAME_EXTENSION = B.GPI_NAME_EXTENSION)
+get_ndc.sas:              		AND (    A.GPI_FORM           IS NULL
+get_ndc.sas:                    	OR A.GPI_FORM           = B.GPI_FORM)
+get_ndc.sas:              		AND (    A.GPI_STRENGTH       IS NULL
+get_ndc.sas:                    	OR A.GPI_STRENGTH       = B.GPI_STRENGTH)
+get_ndc.sas:             		AND (	DECIMAL(A.GPI_CD) = B.DRUG_PRODUCT_ID)
+get_ndc.sas:                     AND(   DECIMAL(A.GPI_CD) = B.DRUG_NDC_ID)
+get_ndc.sas:             		AND (	DECIMAL(A.GPI_CD) = B.DGH_GCN_CD)
+get_ndc.sas:			GROUP BY DRUG_NDC_ID, NHU_TYPE_CD, B.GPI_GROUP, B.GPI_CLASS
+get_ndc.sas:           ,GPI_GROUP        CHAR(2)
+get_ndc.sas:           ,GPI_CLASS        CHAR(2)
+get_ndc.sas:          ,GPI_GROUP
+get_ndc.sas:          ,GPI_CLASS
+get_ndc.sas:                   ,GPI_GROUP
+get_ndc.sas:                   ,GPI_CLASS
+get_ndc.sas:            GROUP BY DRUG_NDC_ID, NHU_TYPE_CD, GPI_GROUP, GPI_CLASS
+get_ndc.sas:                 FROM &GPI_NDC_HIS B
+get_ndc.sas:	                   ,A.GPI_GROUP   
+get_ndc.sas:                       ,A.GPI_CLASS
+get_ndc.sas:		%drop_db2_table(tbl_name=&GPI_NDC_HIS.);
+get_ndc.sas:           ,GPI_GROUP        CHAR(2)
+get_ndc.sas:           ,GPI_CLASS        CHAR(2)
+get_ndc.sas:          ,GPI_GROUP
+get_ndc.sas:          ,GPI_CLASS
+get_ndc.sas:                   ,GPI_GROUP
+get_ndc.sas:                   ,GPI_CLASS
+get_ndc.sas:      GROUP BY DRUG_NDC_ID, NHU_TYPE_CD, GPI_GROUP, GPI_CLASS
+get_ndc.sas:                 FROM &GPI_NDC_HIS B
+get_ndc.sas:                 ,A.GPI_GROUP
+get_ndc.sas:				 ,A.GPI_CLASS 
+get_ndc.sas:				(SELECT DRUG_GID, NDC_CODE AS DRUG_NDC_ID, SUBSTR(GPI_CODE,1,2) AS GPI_GROUP, SUBSTR(GPI_CODE,3,2) AS GPI_CLASS, DRUG_VLD_FLG
+get_ndc.sas:				    AND A.GPI_GROUP = B.GPI_GROUP
+get_ndc.sas:					AND A.GPI_CLASS = B.GPI_CLASS
+get_ndc.sas:%drop_db2_table(tbl_name=&GPI_NDC_HIS.);
+get_ndc.sas:                   ,SUBSTR(GPI_CODE,1,2) AS GPI_GROUP        
+get_ndc.sas:         		   ,SUBSTR(GPI_CODE,3,2) AS GPI_CLASS
+get_ndc.sas:%let GPI_NDC_HIS_EDW72 = &ORA_TMP..&TABLE_PREFIX._GPI_NDC_HIS_EDW72;
+get_ndc.sas:%put GPI_NDC_HIS_EDW72 = &GPI_NDC_HIS_EDW72;
+get_ndc.sas:	%if (%cmpres(&GPI_NDC_HIS_EDW72) ne) %then
+get_ndc.sas:	%drop_oracle_table(tbl_name=&GPI_NDC_HIS_EDW72);
+get_ndc.sas:	%PUT NOTE: DROPPING TABLE &GPI_NDC_HIS_EDW72 BECAUSE IT EXISTS;
+get_ndc.sas:	CREATE TABLE &GPI_NDC_HIS_EDW72 AS
+get_ndc.sas:                     ,SUBSTR(GPI_CODE,1,2) AS GPI_GROUP
+get_ndc.sas:                     ,SUBSTR(GPI_CODE,3,2) AS GPI_CLASS
+get_ndc.sas:				 SELECT DISTINCT GPI_CD
+get_ndc.sas:				 				,SUBSTR(GPI_CD,1,2) AS GPI_GROUP
+get_ndc.sas:                      			,SUBSTR(GPI_CD,3,2) AS GPI_CLASS
+get_ndc.sas:                      			,SUBSTR(GPI_CD,5,2) AS GPI_SUBCLASS
+get_ndc.sas:                      			,SUBSTR(GPI_CD,7,2) AS GPI_NAME
+get_ndc.sas:                      			,SUBSTR(GPI_CD,9,2) AS GPI_NAME_EXTENSION
+get_ndc.sas:                      			,SUBSTR(GPI_CD,11,2) AS GPI_FORM
+get_ndc.sas:                      			,SUBSTR(GPI_CD,13,2) AS GPI_STRENGTH
+get_ndc.sas:	   			 FROM &HERCULES..TPROGRAM_GPI_HIS
+get_ndc.sas:			  		AND (    A.GPI_GROUP        = SUBSTR(B.GPI_CODE,1,2))
+get_ndc.sas:              		AND (    A.GPI_CLASS          IS NULL
+get_ndc.sas:                    	OR A.GPI_CLASS          = SUBSTR(B.GPI_CODE,3,2))
+get_ndc.sas:              		AND (    A.GPI_SUBCLASS       IS NULL
+get_ndc.sas:                    	OR A.GPI_SUBCLASS       = SUBSTR(B.GPI_CODE,5,2))
+get_ndc.sas:              		AND (    A.GPI_NAME           IS NULL
+get_ndc.sas:                    	OR A.GPI_NAME           = SUBSTR(B.GPI_CODE,7,2))
+get_ndc.sas:              		AND (    A.GPI_NAME_EXTENSION IS NULL
+get_ndc.sas:                    	OR A.GPI_NAME_EXTENSION = SUBSTR(B.GPI_CODE,9,2))
+get_ndc.sas:              		AND (    A.GPI_FORM           IS NULL
+get_ndc.sas:                    	OR A.GPI_FORM           = SUBSTR(B.GPI_CODE,11,2))
+get_ndc.sas:              		AND (    A.GPI_STRENGTH       IS NULL
+get_ndc.sas:                    	OR A.GPI_STRENGTH       = SUBSTR(B.GPI_CODE,13,2))
+get_ndc.sas:                 FROM &GPI_NDC_HIS_EDW72 B
+get_ndc_bsrdaw.sas:|                 Join HERCULES Drug IDs with CLAIMS Drug IDs by GPI, NDC-9 or
+get_ndc_bsrdaw.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,01,2),'  ') AS GPI_GROUP
+get_ndc_bsrdaw.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,03,2),'  ') AS GPI_CLASS
+get_ndc_bsrdaw.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,05,2),'  ') AS GPI_SUBCLASS
+get_ndc_bsrdaw.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,07,2),'  ') AS GPI_NAME
+get_ndc_bsrdaw.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,09,2),'  ') AS GPI_NAME_EXTENSION
+get_ndc_bsrdaw.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,11,2),'  ') AS GPI_FORM
+get_ndc_bsrdaw.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,13,2),'  ') AS GPI_STRENGTH
+get_ndc_bsrdaw.sas:/* if target drug type is GPI. */
+get_ndc_bsrdaw.sas:             AND(  (   A.GPI_GROUP          = B.GPI_GROUP)
+get_ndc_bsrdaw.sas:                AND(   A.GPI_CLASS          IS NULL
+get_ndc_bsrdaw.sas:                    OR A.GPI_CLASS          = B.GPI_CLASS)
+get_ndc_bsrdaw.sas:                AND(   A.GPI_SUBCLASS       IS NULL
+get_ndc_bsrdaw.sas:                    OR A.GPI_SUBCLASS       = B.GPI_SUBCLASS)
+get_ndc_bsrdaw.sas:                AND(   A.GPI_NAME           IS NULL
+get_ndc_bsrdaw.sas:                    OR A.GPI_NAME           = B.GPI_NAME)
+get_ndc_bsrdaw.sas:                AND(   A.GPI_NAME_EXTENSION IS NULL
+get_ndc_bsrdaw.sas:                    OR A.GPI_NAME_EXTENSION = B.GPI_NAME_EXTENSION)
+get_ndc_bsrdaw.sas:                AND(   A.GPI_FORM           IS NULL
+get_ndc_bsrdaw.sas:                    OR A.GPI_FORM           = B.GPI_FORM)
+get_ndc_bsrdaw.sas:                AND(   A.GPI_STRENGTH       IS NULL
+get_ndc_bsrdaw.sas:                    OR A.GPI_STRENGTH       = B.GPI_STRENGTH)
+get_ndc_bsrdaw.sas:%let GPI_NDC_HIS = &DB2_TMP..&table_prefix._GPI_NDC_HIS;
+get_ndc_bsrdaw.sas:%put NOTE: GPI_NDC_HIS = &GPI_NDC_HIS; 
+get_ndc_bsrdaw.sas:   		%if (%cmpres(&GPI_NDC_HIS) ne) %then
+get_ndc_bsrdaw.sas:		%drop_db2_table(tbl_name=&GPI_NDC_HIS);
+get_ndc_bsrdaw.sas:		%PUT NOTE: DROPPING TABLE &GPI_NDC_HIS BECAUSE IT EXISTS;
+get_ndc_bsrdaw.sas:   CREATE TABLE &GPI_NDC_HIS
+get_ndc_bsrdaw.sas:		   ,GPI_GROUP			CHAR(2)
+get_ndc_bsrdaw.sas:		   ,GPI_CLASS			CHAR(2)
+get_ndc_bsrdaw.sas:   ALTER TABLE &GPI_NDC_HIS ACTIVATE NOT LOGGED INITIALLY
+get_ndc_bsrdaw.sas:      INSERT INTO &GPI_NDC_HIS
+get_ndc_bsrdaw.sas:		   ,GPI_GROUP			
+get_ndc_bsrdaw.sas:		   ,GPI_CLASS)
+get_ndc_bsrdaw.sas:                     ,B.GPI_GROUP
+get_ndc_bsrdaw.sas:                     ,B.GPI_CLASS
+get_ndc_bsrdaw.sas:				 SELECT DISTINCT GPI_CD
+get_ndc_bsrdaw.sas:	   				  			,NULLIF(SUBSTR(GPI_CD,01,2),'  ') AS GPI_GROUP
+get_ndc_bsrdaw.sas:                      			,NULLIF(SUBSTR(GPI_CD,03,2),'  ') AS GPI_CLASS
+get_ndc_bsrdaw.sas:                      			,NULLIF(SUBSTR(GPI_CD,05,2),'  ') AS GPI_SUBCLASS
+get_ndc_bsrdaw.sas:                      			,NULLIF(SUBSTR(GPI_CD,07,2),'  ') AS GPI_NAME
+get_ndc_bsrdaw.sas:                      			,NULLIF(SUBSTR(GPI_CD,09,2),'  ') AS GPI_NAME_EXTENSION
+get_ndc_bsrdaw.sas:                      			,NULLIF(SUBSTR(GPI_CD,11,2),'  ') AS GPI_FORM
+get_ndc_bsrdaw.sas:                      			,NULLIF(SUBSTR(GPI_CD,13,2),'  ') AS GPI_STRENGTH
+get_ndc_bsrdaw.sas:	   			 FROM &HERCULES..TPROGRAM_GPI_HIS
+get_ndc_bsrdaw.sas:			  		AND (    A.GPI_GROUP          = B.GPI_GROUP)
+get_ndc_bsrdaw.sas:              		AND (    A.GPI_CLASS          IS NULL
+get_ndc_bsrdaw.sas:                    	OR A.GPI_CLASS          = B.GPI_CLASS)
+get_ndc_bsrdaw.sas:              		AND (    A.GPI_SUBCLASS       IS NULL
+get_ndc_bsrdaw.sas:                    	OR A.GPI_SUBCLASS       = B.GPI_SUBCLASS)
+get_ndc_bsrdaw.sas:              		AND (    A.GPI_NAME           IS NULL
+get_ndc_bsrdaw.sas:                    	OR A.GPI_NAME           = B.GPI_NAME)
+get_ndc_bsrdaw.sas:              		AND (    A.GPI_NAME_EXTENSION IS NULL
+get_ndc_bsrdaw.sas:                    	OR A.GPI_NAME_EXTENSION = B.GPI_NAME_EXTENSION)
+get_ndc_bsrdaw.sas:              		AND (    A.GPI_FORM           IS NULL
+get_ndc_bsrdaw.sas:                    	OR A.GPI_FORM           = B.GPI_FORM)
+get_ndc_bsrdaw.sas:              		AND (    A.GPI_STRENGTH       IS NULL
+get_ndc_bsrdaw.sas:                    	OR A.GPI_STRENGTH       = B.GPI_STRENGTH)
+get_ndc_bsrdaw.sas:             		AND (	DECIMAL(A.GPI_CD) = B.DRUG_PRODUCT_ID)
+get_ndc_bsrdaw.sas:                     AND(   DECIMAL(A.GPI_CD) = B.DRUG_NDC_ID)
+get_ndc_bsrdaw.sas:             		AND (	DECIMAL(A.GPI_CD) = B.DGH_GCN_CD)
+get_ndc_bsrdaw.sas:			GROUP BY DRUG_NDC_ID, NHU_TYPE_CD, B.GPI_GROUP, B.GPI_CLASS
+get_ndc_bsrdaw.sas:           ,GPI_GROUP        CHAR(2)
+get_ndc_bsrdaw.sas:           ,GPI_CLASS        CHAR(2)
+get_ndc_bsrdaw.sas:          ,GPI_GROUP
+get_ndc_bsrdaw.sas:          ,GPI_CLASS
+get_ndc_bsrdaw.sas:                   ,GPI_GROUP
+get_ndc_bsrdaw.sas:                   ,GPI_CLASS
+get_ndc_bsrdaw.sas:            GROUP BY DRUG_NDC_ID, NHU_TYPE_CD, GPI_GROUP, GPI_CLASS
+get_ndc_bsrdaw.sas:                 FROM &GPI_NDC_HIS B
+get_ndc_bsrdaw.sas:	                   ,A.GPI_GROUP   
+get_ndc_bsrdaw.sas:                       ,A.GPI_CLASS
+get_ndc_bsrdaw.sas:		%drop_db2_table(tbl_name=&GPI_NDC_HIS.);
+get_ndc_bsrdaw.sas:           ,GPI_GROUP        CHAR(2)
+get_ndc_bsrdaw.sas:           ,GPI_CLASS        CHAR(2)
+get_ndc_bsrdaw.sas:          ,GPI_GROUP
+get_ndc_bsrdaw.sas:          ,GPI_CLASS
+get_ndc_bsrdaw.sas:                   ,GPI_GROUP
+get_ndc_bsrdaw.sas:                   ,GPI_CLASS
+get_ndc_bsrdaw.sas:      GROUP BY DRUG_NDC_ID, NHU_TYPE_CD, GPI_GROUP, GPI_CLASS
+get_ndc_bsrdaw.sas:                 FROM &GPI_NDC_HIS B
+get_ndc_bsrdaw.sas:                 ,A.GPI_GROUP
+get_ndc_bsrdaw.sas:				 ,A.GPI_CLASS 
+get_ndc_bsrdaw.sas:				(SELECT DRUG_GID, NDC_CODE AS DRUG_NDC_ID, SUBSTR(GPI_CODE,1,2) AS GPI_GROUP, SUBSTR(GPI_CODE,3,2) AS GPI_CLASS, DRUG_VLD_FLG
+get_ndc_bsrdaw.sas:				    AND A.GPI_GROUP = B.GPI_GROUP
+get_ndc_bsrdaw.sas:					AND A.GPI_CLASS = B.GPI_CLASS
+get_ndc_bsrdaw.sas:%drop_db2_table(tbl_name=&GPI_NDC_HIS.);
+get_ndc_bsrdaw.sas:                   ,SUBSTR(GPI_CODE,1,2) AS GPI_GROUP        
+get_ndc_bsrdaw.sas:         		   ,SUBSTR(GPI_CODE,3,2) AS GPI_CLASS
+get_ndc_bsrdaw.sas:%let GPI_NDC_HIS_EDW72 = &ORA_TMP..&TABLE_PREFIX._GPI_NDC_HIS_EDW72;
+get_ndc_bsrdaw.sas:%put GPI_NDC_HIS_EDW72 = &GPI_NDC_HIS_EDW72;
+get_ndc_bsrdaw.sas:	%if (%cmpres(&GPI_NDC_HIS_EDW72) ne) %then
+get_ndc_bsrdaw.sas:	%drop_oracle_table(tbl_name=&GPI_NDC_HIS_EDW72);
+get_ndc_bsrdaw.sas:	%PUT NOTE: DROPPING TABLE &GPI_NDC_HIS_EDW72 BECAUSE IT EXISTS;
+get_ndc_bsrdaw.sas:	CREATE TABLE &GPI_NDC_HIS_EDW72 AS
+get_ndc_bsrdaw.sas:                     ,SUBSTR(GPI_CODE,1,2) AS GPI_GROUP
+get_ndc_bsrdaw.sas:                     ,SUBSTR(GPI_CODE,3,2) AS GPI_CLASS
+get_ndc_bsrdaw.sas:				 SELECT DISTINCT GPI_CD
+get_ndc_bsrdaw.sas:				 				,SUBSTR(GPI_CD,1,2) AS GPI_GROUP
+get_ndc_bsrdaw.sas:                      			,SUBSTR(GPI_CD,3,2) AS GPI_CLASS
+get_ndc_bsrdaw.sas:                      			,SUBSTR(GPI_CD,5,2) AS GPI_SUBCLASS
+get_ndc_bsrdaw.sas:                      			,SUBSTR(GPI_CD,7,2) AS GPI_NAME
+get_ndc_bsrdaw.sas:                      			,SUBSTR(GPI_CD,9,2) AS GPI_NAME_EXTENSION
+get_ndc_bsrdaw.sas:                      			,SUBSTR(GPI_CD,11,2) AS GPI_FORM
+get_ndc_bsrdaw.sas:                      			,SUBSTR(GPI_CD,13,2) AS GPI_STRENGTH
+get_ndc_bsrdaw.sas:	   			 FROM &HERCULES..TPROGRAM_GPI_HIS
+get_ndc_bsrdaw.sas:			  		AND (    A.GPI_GROUP        = SUBSTR(B.GPI_CODE,1,2))
+get_ndc_bsrdaw.sas:              		AND (    A.GPI_CLASS          IS NULL
+get_ndc_bsrdaw.sas:                    	OR A.GPI_CLASS          = SUBSTR(B.GPI_CODE,3,2))
+get_ndc_bsrdaw.sas:              		AND (    A.GPI_SUBCLASS       IS NULL
+get_ndc_bsrdaw.sas:                    	OR A.GPI_SUBCLASS       = SUBSTR(B.GPI_CODE,5,2))
+get_ndc_bsrdaw.sas:              		AND (    A.GPI_NAME           IS NULL
+get_ndc_bsrdaw.sas:                    	OR A.GPI_NAME           = SUBSTR(B.GPI_CODE,7,2))
+get_ndc_bsrdaw.sas:              		AND (    A.GPI_NAME_EXTENSION IS NULL
+get_ndc_bsrdaw.sas:                    	OR A.GPI_NAME_EXTENSION = SUBSTR(B.GPI_CODE,9,2))
+get_ndc_bsrdaw.sas:              		AND (    A.GPI_FORM           IS NULL
+get_ndc_bsrdaw.sas:                    	OR A.GPI_FORM           = SUBSTR(B.GPI_CODE,11,2))
+get_ndc_bsrdaw.sas:              		AND (    A.GPI_STRENGTH       IS NULL
+get_ndc_bsrdaw.sas:                    	OR A.GPI_STRENGTH       = SUBSTR(B.GPI_CODE,13,2))
+get_ndc_bsrdaw.sas:                 FROM &GPI_NDC_HIS_EDW72 B
+get_ndc_gstp.sas:	   		(  SELECT A.GSTP_GPI_CD
+get_ndc_gstp.sas:	   		(  SELECT A.GSTP_GPI_CD
+get_ndc_gstp.sas:	   		(  SELECT A.GSTP_GPI_CD
+get_ndc_gstp.sas:	   		(  SELECT A.GSTP_GPI_CD
+get_ndc_gstp.sas:		PROC SORT DATA = STD_DRUGS NODUPKEY; BY GSTP_GPI_CD GSTP_GCN_CD GSTP_DRG_NDC_ID DRG_DTW_CD;
+get_ndc_gstp.sas:| Handle wild-carded GPIs, create join on either GPI or NDC
+get_ndc_gstp.sas:		IF GSTP_GPI_CD NE '0' THEN DO;
+get_ndc_gstp.sas:		   DRUG_FIELD = 'GPI';
+get_ndc_gstp.sas:		   DRUG_KEY   = 'GPI'||TRIM(GSTP_GPI_CD);
+get_ndc_gstp.sas:		   EDW_FIELD_NAME = 'GPI_CODE';
+get_ndc_gstp.sas:		   AST=INDEX(GSTP_GPI_CD,'*');
+get_ndc_gstp.sas:		   IF AST THEN DRUG_SUB=SUBSTR(GSTP_GPI_CD,1,(AST-1));ELSE DRUG_SUB=GSTP_GPI_CD;
+get_ndc_gstp.sas:GPI_MAC=TRIM(LEFT_PAR)||'DRUG.'||TRIM(EDW_FIELD_NAME)||' '||'LIKE '||TRIM(LEFT_PAR)||TRIM(TICK)||TRIM(DRUG_SUB)||TRIM(LIKE)||TRIM(TICK)||TRIM(RIGHT_PAR)||TRIM(RIGHT_PAR);
+get_ndc_gstp.sas:GPI_MAC = "(DRUG.GPI_CODE LIKE ('A%'))";
+get_ndc_gstp.sas:DRUG_SUB_MAC = "WHEN (DRUG.GPI_CODE LIKE ('A%')) THEN 'A'";
+get_ndc_gstp.sas:DRUG_FIELD = 'GPI';
+get_ndc_gstp.sas:GPI_MAC = "(DRUG.GPI_CODE LIKE ('A%'))";
+get_ndc_gstp.sas:DRUG_SUB_MAC = "WHEN (DRUG.GPI_CODE LIKE ('A%')) THEN 'A'";
+get_ndc_gstp.sas:SELECT DISTINCT GPI_MAC
+get_ndc_gstp.sas:   INTO :MEDS_TARG_GPI SEPARATED BY ' OR '
+get_ndc_gstp.sas:WHERE DRUG_FIELD = 'GPI';
+get_ndc_gstp.sas:   INTO :MEDS_SUB_TARG_GPI SEPARATED BY ' '
+get_ndc_gstp.sas:WHERE DRUG_FIELD = 'GPI';
+get_ndc_gstp.sas:SELECT DISTINCT GPI_MAC
+get_ndc_gstp.sas:   INTO :MEDS_PRE_GPI SEPARATED BY ' OR '
+get_ndc_gstp.sas:WHERE DRUG_FIELD = 'GPI';
+get_ndc_gstp.sas:   INTO :MEDS_SUB_PRE_GPI SEPARATED BY ' '
+get_ndc_gstp.sas:WHERE DRUG_FIELD = 'GPI';
+get_ndc_gstp.sas:SELECT DISTINCT GPI_MAC
+get_ndc_gstp.sas:SELECT DISTINCT GPI_MAC
+get_ndc_gstp.sas:  DRUG.GPI_CODE,                       
+get_ndc_gstp.sas:  DRUG.GPI_NAME,   
+get_ndc_gstp.sas:  DRUG.GPI_CODE,                       
+get_ndc_gstp.sas:  DRUG.GPI_NAME,   
+get_ndc_gstp.sas:%PULL_DRUGS(PRE=GPI);
+get_ndc_gstp.sas:SET DRUG_DENORM_T_GPI
+get_ndc_gstp.sas:SET DRUG_DENORM_P_GPI
+get_ndc_gstp.sas:					 ,GPI_CODE                   VARCHAR2(14)
+get_ndc_gstp.sas:					 ,GPI_NAME                   VARCHAR2(60)
+get_ndc_gstp.sas:					 ,GPI_CODE                
+get_ndc_gstp.sas:					 ,GPI_NAME                 
+get_ndc_tbd.sas:|                 Join HERCULES Drug IDs with CLAIMS Drug IDs by GPI, NDC-9 or
+get_ndc_tbd.sas:				,GPI_CODE
+get_ndc_tbd.sas:		DATA WORK.ALL_EDW_DRUGS (KEEP=DRUG_GID GPI_GROUP GPI_CLASS GPI_SUBCLASS GPI_NAME GPI_NAME_EXTENSION 
+get_ndc_tbd.sas:		GPI_FORM GPI_STRENGTH DRUG_NDC_ID DRUG_PRODUCT_ID DGH_GCN_CD RECAP_RX_IN RXCLM_RX_IN RECAP_DRUG_BRAND_CD
+get_ndc_tbd.sas:  		GPI_GROUP            = SUBSTR(GPI_CODE,1,2);
+get_ndc_tbd.sas:  		GPI_CLASS  		     = SUBSTR(GPI_CODE,3,2);
+get_ndc_tbd.sas:  		GPI_SUBCLASS         = SUBSTR(GPI_CODE,5,2);
+get_ndc_tbd.sas:  		GPI_NAME             = SUBSTR(GPI_CODE,7,2);
+get_ndc_tbd.sas:  		GPI_NAME_EXTENSION   = SUBSTR(GPI_CODE,9,2);
+get_ndc_tbd.sas:  		GPI_FORM             = SUBSTR(GPI_CODE,11,2);
+get_ndc_tbd.sas:  		GPI_STRENGTH         = SUBSTR(GPI_CODE,13,2);
+get_ndc_tbd.sas:           ,GPI_GROUP               CHAR(2)
+get_ndc_tbd.sas:           ,GPI_CLASS               CHAR(2)
+get_ndc_tbd.sas:           ,GPI_SUBCLASS            CHAR(2)
+get_ndc_tbd.sas:           ,GPI_NAME                CHAR(2)
+get_ndc_tbd.sas:           ,GPI_NAME_EXTENSION      CHAR(2) 
+get_ndc_tbd.sas:		   ,GPI_FORM                CHAR(2)
+get_ndc_tbd.sas:           ,GPI_STRENGTH            CHAR(2)
+get_ndc_tbd.sas:           ,GPI_GROUP 
+get_ndc_tbd.sas:           ,GPI_CLASS 
+get_ndc_tbd.sas:           ,GPI_SUBCLASS 
+get_ndc_tbd.sas:           ,GPI_NAME 
+get_ndc_tbd.sas:           ,GPI_NAME_EXTENSION 
+get_ndc_tbd.sas:		   ,GPI_FORM 
+get_ndc_tbd.sas:           ,GPI_STRENGTH 
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,01,2),'  ') AS GPI_GROUP
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,03,2),'  ') AS GPI_CLASS
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,05,2),'  ') AS GPI_SUBCLASS
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,07,2),'  ') AS GPI_NAME
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,09,2),'  ') AS GPI_NAME_EXTENSION
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,11,2),'  ') AS GPI_FORM
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,13,2),'  ') AS GPI_STRENGTH
+get_ndc_tbd.sas:/* if target drug type is GPI. */
+get_ndc_tbd.sas:             AND(  (   A.GPI_GROUP          = B.GPI_GROUP)
+get_ndc_tbd.sas:                AND(   A.GPI_CLASS          IS NULL
+get_ndc_tbd.sas:                    OR A.GPI_CLASS          = B.GPI_CLASS)
+get_ndc_tbd.sas:                AND(   A.GPI_SUBCLASS       IS NULL
+get_ndc_tbd.sas:                    OR A.GPI_SUBCLASS       = B.GPI_SUBCLASS)
+get_ndc_tbd.sas:                AND(   A.GPI_NAME           IS NULL
+get_ndc_tbd.sas:                    OR A.GPI_NAME           = B.GPI_NAME)
+get_ndc_tbd.sas:                AND(   A.GPI_NAME_EXTENSION IS NULL
+get_ndc_tbd.sas:                    OR A.GPI_NAME_EXTENSION = B.GPI_NAME_EXTENSION)
+get_ndc_tbd.sas:                AND(   A.GPI_FORM           IS NULL
+get_ndc_tbd.sas:                    OR A.GPI_FORM           = B.GPI_FORM)
+get_ndc_tbd.sas:                AND(   A.GPI_STRENGTH       IS NULL
+get_ndc_tbd.sas:                    OR A.GPI_STRENGTH       = B.GPI_STRENGTH)
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,01,2),'  ') AS GPI_GROUP
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,03,2),'  ') AS GPI_CLASS
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,05,2),'  ') AS GPI_SUBCLASS
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,07,2),'  ') AS GPI_NAME
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,09,2),'  ') AS GPI_NAME_EXTENSION
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,11,2),'  ') AS GPI_FORM
+get_ndc_tbd.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,13,2),'  ') AS GPI_STRENGTH
+get_ndc_tbd.sas:/* if target drug type is GPI. */
+get_ndc_tbd.sas:             AND(  (   A.GPI_GROUP          = B.GPI_GROUP)
+get_ndc_tbd.sas:                AND(   A.GPI_CLASS          IS NULL
+get_ndc_tbd.sas:                    OR A.GPI_CLASS          = B.GPI_CLASS)
+get_ndc_tbd.sas:                AND(   A.GPI_SUBCLASS       IS NULL
+get_ndc_tbd.sas:                    OR A.GPI_SUBCLASS       = B.GPI_SUBCLASS)
+get_ndc_tbd.sas:                AND(   A.GPI_NAME           IS NULL
+get_ndc_tbd.sas:                    OR A.GPI_NAME           = B.GPI_NAME)
+get_ndc_tbd.sas:                AND(   A.GPI_NAME_EXTENSION IS NULL
+get_ndc_tbd.sas:                    OR A.GPI_NAME_EXTENSION = B.GPI_NAME_EXTENSION)
+get_ndc_tbd.sas:                AND(   A.GPI_FORM           IS NULL
+get_ndc_tbd.sas:                    OR A.GPI_FORM           = B.GPI_FORM)
+get_ndc_tbd.sas:                AND(   A.GPI_STRENGTH       IS NULL
+get_ndc_tbd.sas:                    OR A.GPI_STRENGTH       = B.GPI_STRENGTH)
+get_ndc_tbd.sas:%let GPI_NDC_HIS = &DB2_TMP..&table_prefix._GPI_NDC_HIS;
+get_ndc_tbd.sas:%put NOTE: GPI_NDC_HIS = &GPI_NDC_HIS; 
+get_ndc_tbd.sas:   		%if (%cmpres(&GPI_NDC_HIS) ne) %then
+get_ndc_tbd.sas:		%drop_db2_table(tbl_name=&GPI_NDC_HIS);
+get_ndc_tbd.sas:		%PUT NOTE: DROPPING TABLE &GPI_NDC_HIS BECAUSE IT EXISTS;
+get_ndc_tbd.sas:   CREATE TABLE &GPI_NDC_HIS
+get_ndc_tbd.sas:		   ,GPI_GROUP			CHAR(2)
+get_ndc_tbd.sas:		   ,GPI_CLASS			CHAR(2)
+get_ndc_tbd.sas:   ALTER TABLE &GPI_NDC_HIS ACTIVATE NOT LOGGED INITIALLY
+get_ndc_tbd.sas:      INSERT INTO &GPI_NDC_HIS
+get_ndc_tbd.sas:		   ,GPI_GROUP			
+get_ndc_tbd.sas:		   ,GPI_CLASS)
+get_ndc_tbd.sas:                     ,B.GPI_GROUP
+get_ndc_tbd.sas:                     ,B.GPI_CLASS
+get_ndc_tbd.sas:				 SELECT DISTINCT GPI_CD
+get_ndc_tbd.sas:	   				  			,NULLIF(SUBSTR(GPI_CD,01,2),'  ') AS GPI_GROUP
+get_ndc_tbd.sas:                      			,NULLIF(SUBSTR(GPI_CD,03,2),'  ') AS GPI_CLASS
+get_ndc_tbd.sas:                      			,NULLIF(SUBSTR(GPI_CD,05,2),'  ') AS GPI_SUBCLASS
+get_ndc_tbd.sas:                      			,NULLIF(SUBSTR(GPI_CD,07,2),'  ') AS GPI_NAME
+get_ndc_tbd.sas:                      			,NULLIF(SUBSTR(GPI_CD,09,2),'  ') AS GPI_NAME_EXTENSION
+get_ndc_tbd.sas:                      			,NULLIF(SUBSTR(GPI_CD,11,2),'  ') AS GPI_FORM
+get_ndc_tbd.sas:                      			,NULLIF(SUBSTR(GPI_CD,13,2),'  ') AS GPI_STRENGTH
+get_ndc_tbd.sas:	   			 FROM &HERCULES..TPROGRAM_GPI_HIS
+get_ndc_tbd.sas:			  		AND (    A.GPI_GROUP          = B.GPI_GROUP)
+get_ndc_tbd.sas:              		AND (    A.GPI_CLASS          IS NULL
+get_ndc_tbd.sas:                    	OR A.GPI_CLASS          = B.GPI_CLASS)
+get_ndc_tbd.sas:              		AND (    A.GPI_SUBCLASS       IS NULL
+get_ndc_tbd.sas:                    	OR A.GPI_SUBCLASS       = B.GPI_SUBCLASS)
+get_ndc_tbd.sas:              		AND (    A.GPI_NAME           IS NULL
+get_ndc_tbd.sas:                    	OR A.GPI_NAME           = B.GPI_NAME)
+get_ndc_tbd.sas:              		AND (    A.GPI_NAME_EXTENSION IS NULL
+get_ndc_tbd.sas:                    	OR A.GPI_NAME_EXTENSION = B.GPI_NAME_EXTENSION)
+get_ndc_tbd.sas:              		AND (    A.GPI_FORM           IS NULL
+get_ndc_tbd.sas:                    	OR A.GPI_FORM           = B.GPI_FORM)
+get_ndc_tbd.sas:              		AND (    A.GPI_STRENGTH       IS NULL
+get_ndc_tbd.sas:                    	OR A.GPI_STRENGTH       = B.GPI_STRENGTH)
+get_ndc_tbd.sas:             		AND (	DECIMAL(A.GPI_CD) = B.DRUG_PRODUCT_ID)
+get_ndc_tbd.sas:                     AND(   DECIMAL(A.GPI_CD) = B.DRUG_NDC_ID)
+get_ndc_tbd.sas:             		AND (	DECIMAL(A.GPI_CD) = B.DGH_GCN_CD)
+get_ndc_tbd.sas:			GROUP BY DRUG_NDC_ID, NHU_TYPE_CD, B.GPI_GROUP, B.GPI_CLASS
+get_ndc_tbd.sas:           ,GPI_GROUP        CHAR(2)
+get_ndc_tbd.sas:           ,GPI_CLASS        CHAR(2)
+get_ndc_tbd.sas:          ,GPI_GROUP
+get_ndc_tbd.sas:          ,GPI_CLASS
+get_ndc_tbd.sas:                   ,GPI_GROUP
+get_ndc_tbd.sas:                   ,GPI_CLASS
+get_ndc_tbd.sas:            GROUP BY DRUG_NDC_ID, NHU_TYPE_CD, GPI_GROUP, GPI_CLASS
+get_ndc_tbd.sas:                 FROM &GPI_NDC_HIS B
+get_ndc_tbd.sas:	                   ,A.GPI_GROUP   
+get_ndc_tbd.sas:                       ,A.GPI_CLASS
+get_ndc_tbd.sas:		%drop_db2_table(tbl_name=&GPI_NDC_HIS.);
+get_ndc_tbd.sas:           ,GPI_GROUP        CHAR(2)
+get_ndc_tbd.sas:           ,GPI_CLASS        CHAR(2)
+get_ndc_tbd.sas:          ,GPI_GROUP
+get_ndc_tbd.sas:          ,GPI_CLASS
+get_ndc_tbd.sas:                   ,GPI_GROUP
+get_ndc_tbd.sas:                   ,GPI_CLASS
+get_ndc_tbd.sas:      GROUP BY DRUG_NDC_ID, NHU_TYPE_CD, GPI_GROUP, GPI_CLASS
+get_ndc_tbd.sas:                 FROM &GPI_NDC_HIS B
+get_ndc_tbd.sas:                 ,A.GPI_GROUP
+get_ndc_tbd.sas:				 ,A.GPI_CLASS 
+get_ndc_tbd.sas:				(SELECT DRUG_GID, NDC_CODE AS DRUG_NDC_ID, SUBSTR(GPI_CODE,1,2) AS GPI_GROUP, SUBSTR(GPI_CODE,3,2) AS GPI_CLASS, DRUG_VLD_FLG
+get_ndc_tbd.sas:				    AND A.GPI_GROUP = B.GPI_GROUP
+get_ndc_tbd.sas:					AND A.GPI_CLASS = B.GPI_CLASS
+get_ndc_tbd.sas:%drop_db2_table(tbl_name=&GPI_NDC_HIS.);
+get_ndc_tbd.sas:                   ,SUBSTR(GPI_CODE,1,2) AS GPI_GROUP        
+get_ndc_tbd.sas:         		   ,SUBSTR(GPI_CODE,3,2) AS GPI_CLASS
+get_ndc_tbd.sas:%let GPI_NDC_HIS_EDW72 = &ORA_TMP..&TABLE_PREFIX._GPI_NDC_HIS_EDW72;
+get_ndc_tbd.sas:%put GPI_NDC_HIS_EDW72 = &GPI_NDC_HIS_EDW72;
+get_ndc_tbd.sas:	%if (%cmpres(&GPI_NDC_HIS_EDW72) ne) %then
+get_ndc_tbd.sas:	%drop_oracle_table(tbl_name=&GPI_NDC_HIS_EDW72);
+get_ndc_tbd.sas:	%PUT NOTE: DROPPING TABLE &GPI_NDC_HIS_EDW72 BECAUSE IT EXISTS;
+get_ndc_tbd.sas:	CREATE TABLE &GPI_NDC_HIS_EDW72 AS
+get_ndc_tbd.sas:                     ,SUBSTR(GPI_CODE,1,2) AS GPI_GROUP
+get_ndc_tbd.sas:                     ,SUBSTR(GPI_CODE,3,2) AS GPI_CLASS
+get_ndc_tbd.sas:				 SELECT DISTINCT GPI_CD
+get_ndc_tbd.sas:				 				,SUBSTR(GPI_CD,1,2) AS GPI_GROUP
+get_ndc_tbd.sas:                      			,SUBSTR(GPI_CD,3,2) AS GPI_CLASS
+get_ndc_tbd.sas:                      			,SUBSTR(GPI_CD,5,2) AS GPI_SUBCLASS
+get_ndc_tbd.sas:                      			,SUBSTR(GPI_CD,7,2) AS GPI_NAME
+get_ndc_tbd.sas:                      			,SUBSTR(GPI_CD,9,2) AS GPI_NAME_EXTENSION
+get_ndc_tbd.sas:                      			,SUBSTR(GPI_CD,11,2) AS GPI_FORM
+get_ndc_tbd.sas:                      			,SUBSTR(GPI_CD,13,2) AS GPI_STRENGTH
+get_ndc_tbd.sas:	   			 FROM &HERCULES..TPROGRAM_GPI_HIS
+get_ndc_tbd.sas:			  		AND (    A.GPI_GROUP        = SUBSTR(B.GPI_CODE,1,2))
+get_ndc_tbd.sas:              		AND (    A.GPI_CLASS          IS NULL
+get_ndc_tbd.sas:                    	OR A.GPI_CLASS          = SUBSTR(B.GPI_CODE,3,2))
+get_ndc_tbd.sas:              		AND (    A.GPI_SUBCLASS       IS NULL
+get_ndc_tbd.sas:                    	OR A.GPI_SUBCLASS       = SUBSTR(B.GPI_CODE,5,2))
+get_ndc_tbd.sas:              		AND (    A.GPI_NAME           IS NULL
+get_ndc_tbd.sas:                    	OR A.GPI_NAME           = SUBSTR(B.GPI_CODE,7,2))
+get_ndc_tbd.sas:              		AND (    A.GPI_NAME_EXTENSION IS NULL
+get_ndc_tbd.sas:                    	OR A.GPI_NAME_EXTENSION = SUBSTR(B.GPI_CODE,9,2))
+get_ndc_tbd.sas:              		AND (    A.GPI_FORM           IS NULL
+get_ndc_tbd.sas:                    	OR A.GPI_FORM           = SUBSTR(B.GPI_CODE,11,2))
+get_ndc_tbd.sas:              		AND (    A.GPI_STRENGTH       IS NULL
+get_ndc_tbd.sas:                    	OR A.GPI_STRENGTH       = SUBSTR(B.GPI_CODE,13,2))
+get_ndc_tbd.sas:                 FROM &GPI_NDC_HIS_EDW72 B
+get_ndc_uat.sas:|                 Join HERCULES Drug IDs with CLAIMS Drug IDs by GPI, NDC-9 or
+get_ndc_uat.sas:|                  Removed the use of the table HERCULES.TPROGRAM_GPI_HIS
+get_ndc_uat.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,01,2),'  ') AS GPI_GROUP
+get_ndc_uat.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,03,2),'  ') AS GPI_CLASS
+get_ndc_uat.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,05,2),'  ') AS GPI_SUBCLASS
+get_ndc_uat.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,07,2),'  ') AS GPI_NAME
+get_ndc_uat.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,09,2),'  ') AS GPI_NAME_EXTENSION
+get_ndc_uat.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,11,2),'  ') AS GPI_FORM
+get_ndc_uat.sas:                ,NULLIF(SUBSTR(B.DRUG_ID,13,2),'  ') AS GPI_STRENGTH
+get_ndc_uat.sas:/* if target drug type is GPI. */
+get_ndc_uat.sas:             AND(  (   A.GPI_GROUP          = B.GPI_GROUP)
+get_ndc_uat.sas:                AND(   A.GPI_CLASS          IS NULL
+get_ndc_uat.sas:                    OR A.GPI_CLASS          = B.GPI_CLASS)
+get_ndc_uat.sas:                AND(   A.GPI_SUBCLASS       IS NULL
+get_ndc_uat.sas:                    OR A.GPI_SUBCLASS       = B.GPI_SUBCLASS)
+get_ndc_uat.sas:                AND(   A.GPI_NAME           IS NULL
+get_ndc_uat.sas:                    OR A.GPI_NAME           = B.GPI_NAME)
+get_ndc_uat.sas:                AND(   A.GPI_NAME_EXTENSION IS NULL
+get_ndc_uat.sas:                    OR A.GPI_NAME_EXTENSION = B.GPI_NAME_EXTENSION)
+get_ndc_uat.sas:                AND(   A.GPI_FORM           IS NULL
+get_ndc_uat.sas:                    OR A.GPI_FORM           = B.GPI_FORM)
+get_ndc_uat.sas:                AND(   A.GPI_STRENGTH       IS NULL
+get_ndc_uat.sas:                    OR A.GPI_STRENGTH       = B.GPI_STRENGTH)
+get_ndc_uat.sas:%let GPI_NDC_HIS = &DB2_TMP..&table_prefix._GPI_NDC_HIS;
+get_ndc_uat.sas:%put NOTE: GPI_NDC_HIS = &GPI_NDC_HIS; 
+get_ndc_uat.sas:   		%if (%cmpres(&GPI_NDC_HIS) ne) %then
+get_ndc_uat.sas:		%drop_db2_table(tbl_name=&GPI_NDC_HIS);
+get_ndc_uat.sas:		%PUT NOTE: DROPPING TABLE &GPI_NDC_HIS BECAUSE IT EXISTS;
+get_ndc_uat.sas:   CREATE TABLE &GPI_NDC_HIS
+get_ndc_uat.sas:		   ,GPI_GROUP			CHAR(2)
+get_ndc_uat.sas:		   ,GPI_CLASS			CHAR(2)
+get_ndc_uat.sas:   ALTER TABLE &GPI_NDC_HIS ACTIVATE NOT LOGGED INITIALLY
+get_ndc_uat.sas:      INSERT INTO &GPI_NDC_HIS
+get_ndc_uat.sas:		   ,GPI_GROUP			
+get_ndc_uat.sas:		   ,GPI_CLASS)
+get_ndc_uat.sas:                     ,B.GPI_GROUP
+get_ndc_uat.sas:                     ,B.GPI_CLASS
+get_ndc_uat.sas:				 SELECT DISTINCT GPI_CD
+get_ndc_uat.sas:	   				  			,NULLIF(SUBSTR(GPI_CD,01,2),'  ') AS GPI_GROUP
+get_ndc_uat.sas:                    ,NULLIF(SUBSTR(GPI_CD,03,2),'  ') AS GPI_CLASS
+get_ndc_uat.sas:                    ,NULLIF(SUBSTR(GPI_CD,05,2),'  ') AS GPI_SUBCLASS
+get_ndc_uat.sas:                    ,NULLIF(SUBSTR(GPI_CD,07,2),'  ') AS GPI_NAME
+get_ndc_uat.sas:                    ,NULLIF(SUBSTR(GPI_CD,09,2),'  ') AS GPI_NAME_EXTENSION
+get_ndc_uat.sas:                    ,NULLIF(SUBSTR(GPI_CD,11,2),'  ') AS GPI_FORM
+get_ndc_uat.sas:                    ,NULLIF(SUBSTR(GPI_CD,13,2),'  ') AS GPI_STRENGTH
+get_ndc_uat.sas:	   			 FROM &HERCULES..TPROGRAM_GPI_HIS
+get_ndc_uat.sas:			  		AND (    A.GPI_GROUP          = B.GPI_GROUP)
+get_ndc_uat.sas:              		AND (    A.GPI_CLASS          IS NULL
+get_ndc_uat.sas:                    	OR A.GPI_CLASS          = B.GPI_CLASS)
+get_ndc_uat.sas:              		AND (    A.GPI_SUBCLASS       IS NULL
+get_ndc_uat.sas:                    	OR A.GPI_SUBCLASS       = B.GPI_SUBCLASS)
+get_ndc_uat.sas:              		AND (    A.GPI_NAME           IS NULL
+get_ndc_uat.sas:                    	OR A.GPI_NAME           = B.GPI_NAME)
+get_ndc_uat.sas:              		AND (    A.GPI_NAME_EXTENSION IS NULL
+get_ndc_uat.sas:                    	OR A.GPI_NAME_EXTENSION = B.GPI_NAME_EXTENSION)
+get_ndc_uat.sas:              		AND (    A.GPI_FORM           IS NULL
+get_ndc_uat.sas:                    	OR A.GPI_FORM           = B.GPI_FORM)
+get_ndc_uat.sas:              		AND (    A.GPI_STRENGTH       IS NULL
+get_ndc_uat.sas:                    	OR A.GPI_STRENGTH       = B.GPI_STRENGTH)
+get_ndc_uat.sas:             		AND (	DECIMAL(A.GPI_CD) = B.DRUG_PRODUCT_ID)
+get_ndc_uat.sas:                     AND(   DECIMAL(A.GPI_CD) = B.DRUG_NDC_ID)
+get_ndc_uat.sas:             		AND (	DECIMAL(A.GPI_CD) = B.DGH_GCN_CD)
+get_ndc_uat.sas:			GROUP BY DRUG_NDC_ID, NHU_TYPE_CD, B.GPI_GROUP, B.GPI_CLASS
+get_ndc_uat.sas:           ,GPI_GROUP        CHAR(2)
+get_ndc_uat.sas:           ,GPI_CLASS        CHAR(2)
+get_ndc_uat.sas:          ,GPI_GROUP
+get_ndc_uat.sas:          ,GPI_CLASS
+get_ndc_uat.sas:                   ,GPI_GROUP
+get_ndc_uat.sas:                   ,GPI_CLASS
+get_ndc_uat.sas:            GROUP BY DRUG_NDC_ID, NHU_TYPE_CD, GPI_GROUP, GPI_CLASS
+get_ndc_uat.sas:/*                 FROM &GPI_NDC_HIS B*/
+get_ndc_uat.sas:             ,A.GPI_GROUP   
+get_ndc_uat.sas:             ,A.GPI_CLASS
+get_ndc_uat.sas:/*		%drop_db2_table(tbl_name=&GPI_NDC_HIS.);*/
+get_ndc_uat.sas:           ,GPI_GROUP           CHAR(2)
+get_ndc_uat.sas:           ,GPI_CLASS           CHAR(2)
+get_ndc_uat.sas:           ,GPI_SUBCLASS        CHAR(2)
+get_ndc_uat.sas:           ,GPI_NAME            CHAR(2)
+get_ndc_uat.sas:           ,GPI_NAME_EXTENSION  CHAR(2)
+get_ndc_uat.sas:           ,GPI_FORM            CHAR(2)
+get_ndc_uat.sas:           ,GPI_STRENGTH        CHAR(2)
+get_ndc_uat.sas:          ,GPI_GROUP
+get_ndc_uat.sas:          ,GPI_CLASS
+get_ndc_uat.sas:          ,GPI_SUBCLASS
+get_ndc_uat.sas:          ,GPI_NAME    
+get_ndc_uat.sas:          ,GPI_NAME_EXTENSION
+get_ndc_uat.sas:          ,GPI_FORM          
+get_ndc_uat.sas:          ,GPI_STRENGTH      
+get_ndc_uat.sas:                   ,GPI_GROUP
+get_ndc_uat.sas:                   ,GPI_CLASS
+get_ndc_uat.sas:                   ,GPI_SUBCLASS
+get_ndc_uat.sas:                   ,GPI_NAME    
+get_ndc_uat.sas:                   ,GPI_NAME_EXTENSION
+get_ndc_uat.sas:                   ,GPI_FORM          
+get_ndc_uat.sas:                   ,GPI_STRENGTH      
+get_ndc_uat.sas:      GROUP BY DRUG_NDC_ID, NHU_TYPE_CD, GPI_GROUP, GPI_CLASS ,GPI_SUBCLASS ,GPI_NAME    
+get_ndc_uat.sas:                   ,GPI_NAME_EXTENSION ,GPI_FORM ,GPI_STRENGTH      
+get_ndc_uat.sas:/*                 FROM &GPI_NDC_HIS B*/
+get_ndc_uat.sas:                 ,A.GPI_GROUP
+get_ndc_uat.sas:        				 ,A.GPI_CLASS 
+get_ndc_uat.sas:                 ,A.GPI_SUBCLASS
+get_ndc_uat.sas:                 ,A.GPI_NAME    
+get_ndc_uat.sas:                 ,A.GPI_NAME_EXTENSION
+get_ndc_uat.sas:                 ,A.GPI_FORM          
+get_ndc_uat.sas:                 ,A.GPI_STRENGTH      
+get_ndc_uat.sas:                ,SUBSTR(GPI_CODE,1,2) AS GPI_GROUP
+get_ndc_uat.sas:                ,SUBSTR(GPI_CODE,3,2) AS GPI_CLASS 
+get_ndc_uat.sas:                ,SUBSTR(GPI_CODE,5,2)AS GPI_SUBCLASS
+get_ndc_uat.sas:                ,SUBSTR(GPI_CODE,7,2)AS GPI_NAME    
+get_ndc_uat.sas:                ,SUBSTR(GPI_CODE,9,2)AS GPI_NAME_EXTENSION
+get_ndc_uat.sas:                ,SUBSTR(GPI_CODE,11,2)AS GPI_FORM          
+get_ndc_uat.sas:                ,SUBSTR(GPI_CODE,13,2)AS GPI_STRENGTH      
+get_ndc_uat.sas:				    AND A.GPI_GROUP = B.GPI_GROUP
+get_ndc_uat.sas:					AND A.GPI_CLASS = B.GPI_CLASS
+get_ndc_uat.sas:/*%drop_db2_table(tbl_name=&GPI_NDC_HIS.);*/
+get_ndc_uat.sas:                 ,SUBSTR(GPI_CODE,1,2) AS GPI_GROUP        
+get_ndc_uat.sas:             		 ,SUBSTR(GPI_CODE,3,2) AS GPI_CLASS
+get_ndc_uat.sas:%let GPI_NDC_HIS_EDW72 = &ORA_TMP..&TABLE_PREFIX._GPI_NDC_HIS_EDW72;
+get_ndc_uat.sas:%put GPI_NDC_HIS_EDW72 = &GPI_NDC_HIS_EDW72;
+get_ndc_uat.sas:	%if (%cmpres(&GPI_NDC_HIS_EDW72) ne) %then
+get_ndc_uat.sas:	%drop_oracle_table(tbl_name=&GPI_NDC_HIS_EDW72);
+get_ndc_uat.sas:	%PUT NOTE: DROPPING TABLE &GPI_NDC_HIS_EDW72 BECAUSE IT EXISTS;
+get_ndc_uat.sas:	CREATE TABLE &GPI_NDC_HIS_EDW72 AS
+get_ndc_uat.sas:           ,SUBSTR(GPI_CODE,1,2) AS GPI_GROUP
+get_ndc_uat.sas:           ,SUBSTR(GPI_CODE,3,2) AS GPI_CLASS
+get_ndc_uat.sas:				 SELECT DISTINCT GPI_CD
+get_ndc_uat.sas:				 				,SUBSTR(GPI_CD,1,2) AS GPI_GROUP
+get_ndc_uat.sas:           			,SUBSTR(GPI_CD,3,2) AS GPI_CLASS
+get_ndc_uat.sas:           			,SUBSTR(GPI_CD,5,2) AS GPI_SUBCLASS
+get_ndc_uat.sas:           			,SUBSTR(GPI_CD,7,2) AS GPI_NAME
+get_ndc_uat.sas:           			,SUBSTR(GPI_CD,9,2) AS GPI_NAME_EXTENSION
+get_ndc_uat.sas:           			,SUBSTR(GPI_CD,11,2) AS GPI_FORM
+get_ndc_uat.sas:           			,SUBSTR(GPI_CD,13,2) AS GPI_STRENGTH
+get_ndc_uat.sas:	   			 FROM &HERCULES..TPROGRAM_GPI_HIS
+get_ndc_uat.sas:			  		AND (    A.GPI_GROUP        = SUBSTR(B.GPI_CODE,1,2))
+get_ndc_uat.sas:              		AND (    A.GPI_CLASS          IS NULL
+get_ndc_uat.sas:                    	OR A.GPI_CLASS          = SUBSTR(B.GPI_CODE,3,2))
+get_ndc_uat.sas:              		AND (    A.GPI_SUBCLASS       IS NULL
+get_ndc_uat.sas:                    	OR A.GPI_SUBCLASS       = SUBSTR(B.GPI_CODE,5,2))
+get_ndc_uat.sas:              		AND (    A.GPI_NAME           IS NULL
+get_ndc_uat.sas:                    	OR A.GPI_NAME           = SUBSTR(B.GPI_CODE,7,2))
+get_ndc_uat.sas:              		AND (    A.GPI_NAME_EXTENSION IS NULL
+get_ndc_uat.sas:                    	OR A.GPI_NAME_EXTENSION = SUBSTR(B.GPI_CODE,9,2))
+get_ndc_uat.sas:              		AND (    A.GPI_FORM           IS NULL
+get_ndc_uat.sas:                    	OR A.GPI_FORM           = SUBSTR(B.GPI_CODE,11,2))
+get_ndc_uat.sas:              		AND (    A.GPI_STRENGTH       IS NULL
+get_ndc_uat.sas:                    	OR A.GPI_STRENGTH       = SUBSTR(B.GPI_CODE,13,2))
+get_ndc_uat.sas:/*                 FROM &GPI_NDC_HIS_EDW72 B*/
+pod_changes.sas:                    CASE SUBSTR(T1.GPI, 1,2)
+pod_changes.sas:                          ELSE SUBSTR(T1.GPI, 1, 2)
+pod_changes.sas:                    CASE SUBSTR(T1.GPI, 3,2)
+pod_changes.sas:                          ELSE SUBSTR(T1.GPI, 3, 2)
+pod_changes.sas:                    CASE SUBSTR(T1.GPI, 5,2)
+pod_changes.sas:                          ELSE SUBSTR(T1.GPI, 5, 2)
+pod_changes.sas:                    CASE SUBSTR(T1.GPI, 7,2)
+pod_changes.sas:                          ELSE SUBSTR(T1.GPI, 7, 2)
+pod_changes.sas:                    CASE SUBSTR(T1.GPI, 9,2)
+pod_changes.sas:                          ELSE SUBSTR(T1.GPI, 5, 2)
+pod_changes.sas:                    CASE SUBSTR(T1.GPI, 11,2)
+pod_changes.sas:                          ELSE SUBSTR(T1.GPI, 11, 2)
+pod_changes.sas:                    CASE SUBSTR(T1.GPI, 13,2)
+pod_changes.sas:                          ELSE SUBSTR(T1.GPI, 13, 2)
+pod_changes61.sas:                    CASE SUBSTR(T1.GPI, 1,2)
+pod_changes61.sas:                          ELSE SUBSTR(T1.GPI, 1, 2)
+pod_changes61.sas:                    CASE SUBSTR(T1.GPI, 3,2)
+pod_changes61.sas:                          ELSE SUBSTR(T1.GPI, 3, 2)
+pod_changes61.sas:                    CASE SUBSTR(T1.GPI, 5,2)
+pod_changes61.sas:                          ELSE SUBSTR(T1.GPI, 5, 2)
+pod_changes61.sas:                    CASE SUBSTR(T1.GPI, 7,2)
+pod_changes61.sas:                          ELSE SUBSTR(T1.GPI, 7, 2)
+pod_changes61.sas:                    CASE SUBSTR(T1.GPI, 9,2)
+pod_changes61.sas:                          ELSE SUBSTR(T1.GPI, 5, 2)
+pod_changes61.sas:                    CASE SUBSTR(T1.GPI, 11,2)
+pod_changes61.sas:                          ELSE SUBSTR(T1.GPI, 11, 2)
+pod_changes61.sas:                    CASE SUBSTR(T1.GPI, 13,2)
+pod_changes61.sas:                          ELSE SUBSTR(T1.GPI, 13, 2)
+pod_to_ndc.sas:           GPI CHAR(14),
+pod_to_ndc.sas:               POD.GPI_THERA_CLS_CD,
+pod_to_ndc61.sas:GPI CHAR(14),
+pod_to_ndc61.sas:               POD.GPI_THERA_CLS_CD,
+pull_claims_for_edw.sas:         MAX(E.GPI_THERA_CLS_CD) AS GPI_THERA_CLS_CD,
+pull_claims_for_edw_YM.sas:		  						E.GPI_THERA_CLS_CD,
+pull_claims_for_edw_old.sas:		  						E.GPI_THERA_CLS_CD,
+pull_claims_for_edw_tbd.sas:		  E.GPI AS GPI_THERA_CLS_CD,
+pull_claims_for_ql.sas:                         D.GPI_GROUP||D.GPI_CLASS||D.GPI_SUBCLASS||D.GPI_NAME||D.GPI_NAME_EXTENSION||D.GPI_FORM||D.GPI_STRENGTH AS GPI_THERA_CLS_CD,
+pull_claims_for_ql.sas:  GPI_THERA_CLS_CD	CHARACTER(14)	,
+pull_claims_for_ql.sas:	G.GPI_GROUP||G.GPI_CLASS||G.GPI_SUBCLASS||G.GPI_NAME||G.GPI_NAME_EXTENSION||G.GPI_FORM||G.GPI_STRENGTH AS GPI_THERA_CLS_CD,
+pull_claims_for_ql.sas: GPI_THERA_CLS_CD	CHARACTER(14)	,
+pull_claims_for_ql.sas:							     GPI_THERA_CLS_CD,
+pull_claims_for_ql.sas:							     GPI_THERA_CLS_CD,
+pull_claims_for_ql_01_01_2013.sas:								 D.GPI_GROUP||D.GPI_CLASS||D.GPI_SUBCLASS||D.GPI_NAME||D.GPI_NAME_EXTENSION||D.GPI_FORM||
+pull_claims_for_ql_01_01_2013.sas:  								 D.GPI_STRENGTH AS GPI_THERA_CLS_CD,
+pull_claims_for_ql_01_01_2013.sas:								 D.GPI_GROUP||D.GPI_CLASS||D.GPI_SUBCLASS||D.GPI_NAME||D.GPI_NAME_EXTENSION||D.GPI_FORM||
+pull_claims_for_ql_01_01_2013.sas:  								 D.GPI_STRENGTH AS GPI_THERA_CLS_CD
+pull_claims_for_ql_01_01_2013.sas:								 D.GPI_GROUP,D.GPI_CLASS,D.GPI_SUBCLASS,
+pull_claims_for_ql_01_01_2013.sas:								 D.GPI_NAME,D.GPI_NAME_EXTENSION,D.GPI_FORM,
+pull_claims_for_ql_01_01_2013.sas:  								 D.GPI_STRENGTH
+pull_claims_for_ql_01_01_2013.sas:								 G.GPI_GROUP||G.GPI_CLASS||G.GPI_SUBCLASS||G.GPI_NAME||G.GPI_NAME_EXTENSION||G.GPI_FORM||
+pull_claims_for_ql_01_01_2013.sas:  								 G.GPI_STRENGTH AS GPI_THERA_CLS_CD,
+pull_claims_for_ql_01_01_2013.sas:								 G.GPI_GROUP||G.GPI_CLASS||G.GPI_SUBCLASS||G.GPI_NAME||G.GPI_NAME_EXTENSION||G.GPI_FORM||
+pull_claims_for_ql_01_01_2013.sas:  								 G.GPI_STRENGTH AS GPI_THERA_CLS_CD
+pull_claims_for_ql_01_01_2013.sas:								 G.GPI_GROUP,G.GPI_CLASS,G.GPI_SUBCLASS,
+pull_claims_for_ql_01_01_2013.sas:								 G.GPI_NAME,G.GPI_NAME_EXTENSION,G.GPI_FORM,
+pull_claims_for_ql_01_01_2013.sas:  								 G.GPI_STRENGTH
+pull_claims_for_ql_01_01_2013.sas:                                 E.GPI_THERA_CLS_CD,
+pull_claims_for_ql_01_01_2013.sas:								 GPI_THERA_CLS_CD,
+pull_claims_for_ql_01_01_2013.sas:								 		 GPI_THERA_CLS_CD
+pull_claims_for_ql_YM.sas:								 D.GPI_GROUP||D.GPI_CLASS||D.GPI_SUBCLASS||D.GPI_NAME||D.GPI_NAME_EXTENSION||D.GPI_FORM||
+pull_claims_for_ql_YM.sas:  								 D.GPI_STRENGTH AS GPI_THERA_CLS_CD,
+pull_claims_for_ql_YM.sas:								 D.GPI_GROUP||D.GPI_CLASS||D.GPI_SUBCLASS||D.GPI_NAME||D.GPI_NAME_EXTENSION||D.GPI_FORM||
+pull_claims_for_ql_YM.sas:  								 D.GPI_STRENGTH AS GPI_THERA_CLS_CD
+pull_claims_for_ql_YM.sas:								 D.GPI_GROUP,D.GPI_CLASS,D.GPI_SUBCLASS,
+pull_claims_for_ql_YM.sas:								 D.GPI_NAME,D.GPI_NAME_EXTENSION,D.GPI_FORM,
+pull_claims_for_ql_YM.sas:  								 D.GPI_STRENGTH
+pull_claims_for_ql_YM.sas:								 G.GPI_GROUP||G.GPI_CLASS||G.GPI_SUBCLASS||G.GPI_NAME||G.GPI_NAME_EXTENSION||G.GPI_FORM||
+pull_claims_for_ql_YM.sas:  								 G.GPI_STRENGTH AS GPI_THERA_CLS_CD,
+pull_claims_for_ql_YM.sas:								 G.GPI_GROUP||G.GPI_CLASS||G.GPI_SUBCLASS||G.GPI_NAME||G.GPI_NAME_EXTENSION||G.GPI_FORM||
+pull_claims_for_ql_YM.sas:  								 G.GPI_STRENGTH AS GPI_THERA_CLS_CD
+pull_claims_for_ql_YM.sas:								 G.GPI_GROUP,G.GPI_CLASS,G.GPI_SUBCLASS,
+pull_claims_for_ql_YM.sas:								 G.GPI_NAME,G.GPI_NAME_EXTENSION,G.GPI_FORM,
+pull_claims_for_ql_YM.sas:  								 G.GPI_STRENGTH
+pull_claims_for_ql_YM.sas:                                 E.GPI_THERA_CLS_CD,
+pull_claims_for_ql_YM.sas:								 GPI_THERA_CLS_CD,
+pull_claims_for_ql_YM.sas:								 		 GPI_THERA_CLS_CD
+pull_claims_for_ql_bkp.sas:								 D.GPI_GROUP||D.GPI_CLASS||D.GPI_SUBCLASS||D.GPI_NAME||D.GPI_NAME_EXTENSION||D.GPI_FORM||
+pull_claims_for_ql_bkp.sas:  								 D.GPI_STRENGTH AS GPI_THERA_CLS_CD,
+pull_claims_for_ql_bkp.sas:								 D.GPI_GROUP||D.GPI_CLASS||D.GPI_SUBCLASS||D.GPI_NAME||D.GPI_NAME_EXTENSION||D.GPI_FORM||
+pull_claims_for_ql_bkp.sas:  								 D.GPI_STRENGTH AS GPI_THERA_CLS_CD
+pull_claims_for_ql_bkp.sas:								 D.GPI_GROUP,D.GPI_CLASS,D.GPI_SUBCLASS,
+pull_claims_for_ql_bkp.sas:								 D.GPI_NAME,D.GPI_NAME_EXTENSION,D.GPI_FORM,
+pull_claims_for_ql_bkp.sas:  								 D.GPI_STRENGTH
+pull_claims_for_ql_bkp.sas:								 G.GPI_GROUP||G.GPI_CLASS||G.GPI_SUBCLASS||G.GPI_NAME||G.GPI_NAME_EXTENSION||G.GPI_FORM||
+pull_claims_for_ql_bkp.sas:  								 G.GPI_STRENGTH AS GPI_THERA_CLS_CD,
+pull_claims_for_ql_bkp.sas:								 G.GPI_GROUP||G.GPI_CLASS||G.GPI_SUBCLASS||G.GPI_NAME||G.GPI_NAME_EXTENSION||G.GPI_FORM||
+pull_claims_for_ql_bkp.sas:  								 G.GPI_STRENGTH AS GPI_THERA_CLS_CD
+pull_claims_for_ql_bkp.sas:								 G.GPI_GROUP,G.GPI_CLASS,G.GPI_SUBCLASS,
+pull_claims_for_ql_bkp.sas:								 G.GPI_NAME,G.GPI_NAME_EXTENSION,G.GPI_FORM,
+pull_claims_for_ql_bkp.sas:  								 G.GPI_STRENGTH
+pull_claims_for_ql_bkp.sas:                                 E.GPI_THERA_CLS_CD,
+pull_claims_for_ql_bkp.sas:								 GPI_THERA_CLS_CD,
+pull_claims_for_ql_bkp.sas:								 		 GPI_THERA_CLS_CD
+pull_ql_retail_claims.sas:				     I.GPI_GROUP||I.GPI_CLASS||I.GPI_SUBCLASS||I.GPI_NAME||I.GPI_NAME_EXTENSION||I.GPI_FORM||I.GPI_STRENGTH AS GPI_THERA_CLS_CD,
+pull_ql_retail_claims.sas:/*								 GPI_THERA_CLS_CD CHAR(14),	 */
+pull_ql_retail_claims.sas:/*					 A.GPI_THERA_CLS_CD,*/
+pull_ql_retail_claims_14dec.sas:								 C.GPI_GROUP||C.GPI_CLASS||C.GPI_SUBCLASS||C.GPI_NAME||C.GPI_NAME_EXTENSION||C.GPI_FORM||
+pull_ql_retail_claims_14dec.sas:  								 C.GPI_STRENGTH AS GPI_THERA_CLS_CD
+pull_ql_retail_claims_14dec.sas:					 C.GPI_GROUP||C.GPI_CLASS||C.GPI_SUBCLASS||C.GPI_NAME||C.GPI_NAME_EXTENSION||C.GPI_FORM||
+pull_ql_retail_claims_14dec.sas:  					 C.GPI_STRENGTH AS GPI_THERA_CLS_CD
+pull_ql_retail_claims_14dec.sas:					 C.GPI_GROUP,C.GPI_CLASS,C.GPI_SUBCLASS,
+pull_ql_retail_claims_14dec.sas:					 C.GPI_NAME,C.GPI_NAME_EXTENSION,C.GPI_FORM,
+pull_ql_retail_claims_14dec.sas:  					 C.GPI_STRENGTH
+pull_ql_retail_claims_YM.sas:								 C.GPI_GROUP||C.GPI_CLASS||C.GPI_SUBCLASS||C.GPI_NAME||C.GPI_NAME_EXTENSION||C.GPI_FORM||
+pull_ql_retail_claims_YM.sas:  								 C.GPI_STRENGTH AS GPI_THERA_CLS_CD
+pull_ql_retail_claims_YM.sas:					 C.GPI_GROUP||C.GPI_CLASS||C.GPI_SUBCLASS||C.GPI_NAME||C.GPI_NAME_EXTENSION||C.GPI_FORM||
+pull_ql_retail_claims_YM.sas:  					 C.GPI_STRENGTH AS GPI_THERA_CLS_CD
+pull_ql_retail_claims_YM.sas:					 C.GPI_GROUP,C.GPI_CLASS,C.GPI_SUBCLASS,
+pull_ql_retail_claims_YM.sas:					 C.GPI_NAME,C.GPI_NAME_EXTENSION,C.GPI_FORM,
+pull_ql_retail_claims_YM.sas:  					 C.GPI_STRENGTH
+pull_ql_retail_claims_dec15.sas:								 C.GPI_GROUP||C.GPI_CLASS||C.GPI_SUBCLASS||C.GPI_NAME||C.GPI_NAME_EXTENSION||C.GPI_FORM||
+pull_ql_retail_claims_dec15.sas:  								 C.GPI_STRENGTH AS GPI_THERA_CLS_CD,
+pull_ql_retail_claims_dec15.sas:					 C.GPI_GROUP||C.GPI_CLASS||C.GPI_SUBCLASS||C.GPI_NAME||C.GPI_NAME_EXTENSION||C.GPI_FORM||
+pull_ql_retail_claims_dec15.sas:  					 C.GPI_STRENGTH AS GPI_THERA_CLS_CD,
+pull_ql_retail_claims_dec15.sas:					 C.GPI_GROUP,C.GPI_CLASS,C.GPI_SUBCLASS,
+pull_ql_retail_claims_dec15.sas:					 C.GPI_NAME,C.GPI_NAME_EXTENSION,C.GPI_FORM,
+pull_ql_retail_claims_dec15.sas:  					 C.GPI_STRENGTH,
+pull_ql_retail_claims_dec15.sas:								 A.GPI_THERA_CLS_CD,	 
+pull_ql_retail_claims_dec15.sas:								 A.GPI_THERA_CLS_CD, 
+pull_ql_retail_claims_dec15.sas:					 A.GPI_THERA_CLS_CD,
+qlfrmcmctn.sas:                 GPI_GROUP CHAR(2),
+qlfrmcmctn.sas:                 GPI_CLASS CHAR(2),
+qlfrmcmctn.sas:                 GPI_SUBCLASS CHAR(2),
+qlfrmcmctn.sas:                 GPI_NAME CHAR(2),
+qlfrmcmctn.sas:                 GPI_NAME_EXTENSION CHAR(2),
+qlfrmcmctn.sas:                 GPI_FORM CHAR(2),
+qlfrmcmctn.sas:                 GPI_STRENGTH CHAR(2),
+qlfrmcmctn.sas:                      T1.GPI_GROUP, 
+qlfrmcmctn.sas:                      T1.GPI_CLASS,
+qlfrmcmctn.sas:                      T1.GPI_SUBCLASS, 
+qlfrmcmctn.sas:                      T1.GPI_NAME,
+qlfrmcmctn.sas:                      T1.GPI_NAME_EXTENSION,
+qlfrmcmctn.sas:                      T1.GPI_FORM,
+qlfrmcmctn.sas:                      T1.GPI_STRENGTH,
+qlfrmcmctn.sas:           GPI CHAR(14))
+qlfrmcmctn.sas:                      T1.GPI
