@@ -1,0 +1,1374 @@
+
+/**HEADER------------------------------------------------------------------------------------
+|
+| PROGRAM NAME: RESOLVE_CLIENT_QL.SAS
+|
+| CALL REFERENCE: RESOLVE_CLIENT_QL IS CALLED BY RESOLVE_CLIENT.SAS
+|
+| PURPOSE:
+|       DETERMINING THE CLIENTS AND THEIR CPGS TO BE INCLUDED OR EXCLUDED
+|       IN A MAILING.
+|
+| INPUT:  
+|       MACRO VARIABLES FROM HERCULES_IN.SAS :
+|       	INITIATIVE_ID, PROGRAM_ID, TASK_ID, QL_ADJ, RX_ADJ, RE_ADJ,
+|			DFL_CLT_INC_EXU_IN, OVRD_CLT_SETUP_IN, DSPLY_CLT_SETUP_CD,
+|			TABLE_PREFIX
+|		TABLES :
+|			PROGRAM-MAINTAINENCE SET-UP
+|				HERCULES.TPGMTASK_QL_RUL
+| 				CLAIMSA.TCLIENT1
+|				CLAIMSA.TCPGRP_CLT_PLN_GR1
+|				CLAIMSA.TRPTDT_RPT_GRP_DTL 
+|			CLIENT SPECIFIC SET-UP
+|          		HERCULES.TINIT_CLIENT_RULE,
+|          		HERCULES.TINIT_CLT_RULE_DEF
+|				CLAIMSA.TCPGRP_CLT_PLN_GR1
+|				CLAIMSA.TRPTDT_RPT_GRP_DTL
+|          		CLAIMSA.TCPG_PB_TRL_HIST,
+|          		CLAIMSA.TPRESC_BENEFIT 
+|
+| OUTPUT: 
+|       MACRO VARIABLES
+|       	RESOLVE_CLIENT_EXCLUDE_FLAG: 
+|				0=INCLUDE CPGS IN THE &TBL_NAME_OUT IN THE MAILING,
+|           	1=EXCLUDE CPGS IN THE &TBL_NAME_OUT FROM THE MAILING.
+|       	RESOLVE_CLIENT_TBL_EXIST_FLAG:
+|           	0 = TABLE &TBL_NAME_OUT DOES NOT EXIST
+|           	1 = TABLE &TBL_NAME_OUT HAS BEEN CREATED.
+|		TABLE:
+|			&TBL_NAME_OUT WITH CLIENT_ID AND CLT_PLAN_GROUP_ID
+|			&TBL_NAME_OUT2 IF &TBL_NAME_IN IS PASSED AS AN INPUT TABLE
+|
+|------------------------------------------------------------------------------------------
+| HISTORY: SEPT      - JOHN HOU
+|          24FEB2006 - BRIAN STROPICH - ADDED THE UPCASE FUNCTION IN THE ASSIGNMENT OF
+|                                       THE MACRO VARIABLE SELECT_STR (HEAT 02530529)
+|		   14APR2008 - SR Hercules Version  2.1.01
+|									  - CHANGED LOGIC FOR PROGRAM MAINTAINENCE SETUP
+|                                     - REMOVED THE LOGIC IN INITIATIVE SET-UP THAT 
+|                                       WAS SETUP TO HANDLE PARTIAL EXCLUDE (PARTIAL EXCLUDE
+|                                       IS NOT ALLOWED IN COMMUNICATION ENGINE)
+|									  - SOME QUERIES IN INITIATIVE SET-UP HAVE BEEN CHANGED
+|                                       TO BE CONSISTENT WITH THE CODES IN BOB SETUP
+|						 - Hercules Version  2.1.2.01
+|------------------------------------------------------------------------------------------
++---------------------------------------------------------------------------------*HEADER*/
+
+%MACRO RESOLVE_CLIENT_QL;
+%*SASDOC -------------------------------------------------------------------------
+ | SETTING UP EXECUTE_CONDITION_FLAG
+ | EXECUTES ONLY WHEN MACRO VARIABLE EXECUTE_CONDITION_FLAG = 1, OTHERWISE EXIT
+ +---------------------------------------------------------------------------SASDOC;
+
+%IF &EXECUTE_CONDITION_FLAG. = 0 %THEN %DO;
+	%PUT NOTE: MACRO WILL NOT EXECUTE BECAUSE EXECUTE_CONDITION IS FALSE;
+	%PUT NOTE: EXECUTE_CONDITION = &EXECUTE_CONDITION; 
+%END;
+%IF &EXECUTE_CONDITION_FLAG.= 0 %THEN 
+	%GOTO EXIT;
+
+%*SASDOC ----------------------------------------------------------------------------------
+ | PROCESS SETUP BASED ON DSPLY_CLT_SETUP_CD
+ | NOTE: DSPLY_CLT_SETUP_CD = 1 - INITIATIVE SETUP (CLIENT SPECIFIC PROCESS)
+ |       DSPLY_CLT_SETUP_CD IN (2,3) - PROGRAM MAINTAINENCE SETUP (BOOK OF BUSINESS PROCESS / PROGRAM SET-UP)
+ |       IF (DSPLY_CLT_SETUP_CD > 3 OR DSPLY_CLT_SETUP_CD = 0), EXIT THE PROCESS
+ |       IF (DSPLY_CLT_SETUP_CD IN (2,3) AND OVRD_CLT_SETUP_IN = 1), RESET DSPLY_CLT_SETUP_CD =1
+ +-----------------------------------------------------------------------------------SASDOC;
+
+%IF &DSPLY_CLT_SETUP_CD=2 OR &DSPLY_CLT_SETUP_CD=3 %THEN
+    %PUT NOTE: CLIENT-DISPLAY-SETUP-CODE=%CMPRES(&DSPLY_CLT_SETUP_CD), USE PROGRAM MAINTAINENCE SETUP. ;
+%ELSE %IF &DSPLY_CLT_SETUP_CD=1 %THEN
+	%PUT NOTE: CLIENT-DISPLAY-SETUP-CODE=%CMPRES(&DSPLY_CLT_SETUP_CD), USE CLIENT SETUP. ;
+%ELSE %DO;
+	%PUT NOTE: CLIENT-DISPLAY-SETUP-CODE=%CMPRES(&DSPLY_CLT_SETUP_CD), EXIT THE PROCESS;
+%END;
+
+%IF (&DSPLY_CLT_SETUP_CD = 0 OR &DSPLY_CLT_SETUP_CD > 3) %THEN %DO;
+    %LET RESOLVE_CLIENT_TBL_EXIST_FLAG = 0;
+	%GOTO EXIT;
+%END;
+
+%*SASDOC ----------------------------------------------------------------------------------
+ | DROP &TBL_NAME_OUT TABLE THAT ALREADY EXISTS IN THE DATABASE
+ +-----------------------------------------------------------------------------------SASDOC;
+
+%DROP_DB2_TABLE(TBL_NAME=&TBL_NAME_OUT); 
+
+%*SASDOC -----------------------------------------------------------------------
+ | PROGRAM-MAINTAINENCE SETUP: TPROGRAM_TASK.DSPLY_CLT_SETUP_CD IN (2,3)
+ | NOTE: 1)DEFAULT INCLUDE / EXCLUDE IS PASSED AT PROGRAMTASK LEVEL, MEANING 
+ |       ALL CLIENTS ASSOCIATED WITH THAT PROGRAM_ID AND TASK_ID WILL HAVE THE 
+ |       SAME DEFAULT INCLUDE / EXCLUDE, UNLIKE HERCULES SETUP, IF NO ROWS EXIST
+ |       IN TPGMTASK_QL_RUL.
+ |       2) IF ROWS EXIST IN TPGMTASK_QL_RUL, THEN THE PROCESS RUNS AS PER
+ |       THE RULE SPECIFIED IN CLT_SETUP_DEF_CD IN TPGMTASK_QL_RUL,
+ |       AND THE DEFAULT INCLUDE / EXCLUDE SPECIFIED IN PROGRAMTASK IS IGNORED
+ |       3) THE OUPUT TABLE CREATED IS BASED ON THE DEFAULT INCLUDE / EXCLUDE 
+ |       SPECIFIED AT PROGRAMTASK LEVEL, BECAUSE THE PROCESS THAT CALLS 
+ |       RESOLVE_CLIENT HAS BEEN HARD-CODED BASED ON THE INCLUDE / EXCLUDE 
+ |       AT PROGRAMTASK LEVEL
+ |       4) THE PROCESS FOR PROGRAM MAINTAINENCE SETUP IS CODED TO RUN FOR 
+ |       DEFAULT EXCLUDE (MEANING THE FINAL TABLE CREATED HAS THE INCLUDE LIST),
+ |       BUT IF THE PROGRAM-TASK BEING RUN IS A DEFAULT INCUDE
+ |       THEN THE OUTPUT OF THE FINAL TABLE OBTAINED IS INVERSED
+ |       5)DEFAULT INCLUDE (DFL_CLT_INC_EXU_IN = 1), MEANS RUN EXCLUSION LOGIC
+ |       DEFAULT EXCLUDE (DFL_CLT_INC_EXU_IN = 0), MEANS RUN INCLUSION LOGIC
+ +-------------------------------------------------------------------------SASDOC;
+
+%IF &DSPLY_CLT_SETUP_CD=2 OR &DSPLY_CLT_SETUP_CD=3 %THEN %DO;
+
+%*SASDOC -----------------------------------------------------------------------------------------
+ | CHECK IF ATLEAST A ROW EXISTS FOR THE PROGRAM_ID-TASK_ID COMBINATION IN TPGMTASK_QL_RUL.
+ | 1)	IF NO ROW EXISTS, USE THE DEFAULT INCLUDE/EXCLUDE SPECIFIED IN TPROGRAMTASK TABLE
+ | 2)	IF EVEN A SINGLE ROW EXISTS, IGNORE THE DEFAULT INCLUDE/EXCLUDE SPECIFIED IN TPROGRAMTASK
+ | 		AND USE THE CLT_SETUP_DEF_CD SPECIFIED IN TPGMTASK_QL_RUL AT CLIENT LEVEL AND APPLY
+ | 		THE CLIENT SPECIFIC RULE ONLY FOR THOSE CLIENTS IN TPGMTASK_QL_RUL TABLE
+ |      PROCESS WILL RUN FOR DEFAULT EXCLUDE, BUT IF IT IS DEFAULT INCLUDE IT WILL INVERSE
+ |      THE OUTPUT
+ +------------------------------------------------------------------------------------------SASDOC;
+
+	PROC SQL NOPRINT;
+		CONNECT TO DB2 AS DB2(DSN=&UDBSPRP.);
+		SELECT ROWS_EXIST_QL_RUL
+		INTO :ROWS_EXIST_QL_RUL
+		FROM CONNECTION TO DB2 
+		(
+		SELECT  COUNT(*) AS ROWS_EXIST_QL_RUL
+		FROM &HERCULES..TPGMTASK_QL_RUL A /*** important for client set up all book business QL ADJ **/
+		WHERE A.PROGRAM_ID = &PROGRAM_ID. 
+	   	  AND A.TASK_ID = &TASK_ID.
+		  AND CURRENT DATE BETWEEN A.EFFECTIVE_DT AND A.EXPIRATION_DT
+   		);
+		DISCONNECT FROM DB2;
+	QUIT;
+	%PUT NOTE: &ROWS_EXIST_QL_RUL;
+
+	%SET_ERROR_FL;
+
+%*SASDOC -----------------------------------------------------------------------------------------
+ | IF NO ROW EXISTS IN TPGMTASK_QL_RUL
+ +------------------------------------------------------------------------------------------SASDOC;
+
+	%IF &ROWS_EXIST_QL_RUL = 0 %THEN %DO;
+
+%*SASDOC -----------------------------------------------------------------------
+ | SETTING UP MACRO VARIABLE CLIENT_ID_CONDITION, WHICH CAN BE USED BY 
+ | THE PROCESS CALLING RESOLVE_CLIENT.SAS
+ | NOTE: REFERENCE TO MACRO VARIABLE CLIENT_CONDITION, IS OBTAINED 
+ | FROM RESOLVE_CLIENT.SAS 
+ +-------------------------------------------------------------------------SASDOC;
+
+		%IF &DFL_CLT_INC_EXU_IN. = 1 %THEN %DO;
+
+			%LET RESOLVE_CLIENT_IDS = %STR();
+
+		%END;
+		%ELSE %IF &DFL_CLT_INC_EXU_IN. = 0 %THEN %DO;
+
+			PROC SQL NOPRINT;
+	        	CONNECT TO DB2 AS DB2(DSN=&UDBSPRP.);
+	        	SELECT CLIENT_ID INTO :RESOLVE_CLIENT_IDS SEPARATED BY ' , '
+	            FROM CONNECTION TO DB2
+	   			(
+				SELECT DISTINCT AA.CLIENT_ID
+				FROM  &CLAIMSA..TCLIENT1 AA
+				INNER JOIN
+	        		  (SELECT AAA.CLIENT_ID, AAA.CLT_PLAN_GROUP_ID
+	                   FROM &CLAIMSA..TCPGRP_CLT_PLN_GR1 AAA
+					       ,&CLAIMSA..TRPTDT_RPT_GRP_DTL BBB
+					   WHERE AAA.CLT_PLAN_GROUP_ID=BBB.CLT_PLAN_GROUP_ID) A
+				ON A.CLIENT_ID = AA.CLIENT_ID
+				WHERE DISCONTINUE_POS_IN = 0 OR
+					  DISCONTINUE_PCS_IN = 0 OR
+					  DISCONTINUE_MOR_IN = 0
+				);
+				DISCONNECT FROM DB2;
+			QUIT;
+
+			%SET_ERROR_FL;
+
+		%END;
+
+		%IF &RESOLVE_CLIENT_IDS. NE	%THEN  
+			%LET CLIENT_ID_CONDITION = %STR(AND CLIENT_ID &CLIENT_CONDITION. IN (&RESOLVE_CLIENT_IDS.)); 
+		%ELSE  
+			%LET CLIENT_ID_CONDITION = ; 
+
+		%PUT NOTE: RESOLVE_CLIENT_IDS=&RESOLVE_CLIENT_IDS;
+		%PUT NOTE: CLIENT_ID_CONDITION = &CLIENT_ID_CONDITION;
+
+%*SASDOC -----------------------------------------------------------------------
+ | IF MACRO VARIABLE NO_OUTPUT_TABLES_IN = 1, EXIT THE PROCESS
+ | IF MACRO VARIABLE NO_OUTPUT_TABLES_IN = 0, RUN THE INCLUSION / EXCLUSION LOGIC
+ | TO OBATIN CPGIDs 
+ +-------------------------------------------------------------------------SASDOC;
+ 
+		%IF &NO_OUTPUT_TABLES_IN.= 1 %THEN 
+			%GOTO EXIT;
+
+%*SASDOC -----------------------------------------------------------------------
+ | CREATE &TBL_NAME_OUT WITH THE LIST OF CLIENT_IDs AND CPGs
+ +-------------------------------------------------------------------------SASDOC;
+
+		PROC SQL;
+			CONNECT TO DB2 AS DB2(DSN=&UDBSPRP);
+			EXECUTE 
+			(
+			CREATE TABLE &TBL_NAME_OUT. AS
+			(SELECT RL.CLIENT_ID, CPG.CLT_PLAN_GROUP_ID
+			 FROM &HERCULES..TINIT_CLIENT_RULE RL,
+				  &CLAIMSA..TCPGRP_CLT_PLN_GR1 CPG)
+			 DEFINITION ONLY NOT LOGGED INITIALLY
+			)BY DB2;
+
+			EXECUTE
+			(
+			ALTER TABLE &TBL_NAME_OUT. ACTIVATE NOT LOGGED INITIALLY 
+			) BY DB2;
+			DISCONNECT FROM DB2;
+		QUIT;
+
+		%IF &DFL_CLT_INC_EXU_IN. = 0 %THEN %DO;
+
+			PROC SQL NOPRINT;
+	        	CONNECT TO DB2 AS DB2(DSN=&UDBSPRP.);
+	        	EXECUTE
+	   			(
+				INSERT INTO &TBL_NAME_OUT. (CLIENT_ID, CLT_PLAN_GROUP_ID)
+				SELECT DISTINCT AA.CLIENT_ID, A.CLT_PLAN_GROUP_ID
+				FROM  &CLAIMSA..TCLIENT1 AA
+				INNER JOIN
+	        		  (SELECT AAA.CLIENT_ID, AAA.CLT_PLAN_GROUP_ID
+	                   FROM &CLAIMSA..TCPGRP_CLT_PLN_GR1 AAA
+					       ,&CLAIMSA..TRPTDT_RPT_GRP_DTL BBB
+					   WHERE AAA.CLT_PLAN_GROUP_ID=BBB.CLT_PLAN_GROUP_ID) A
+				ON A.CLIENT_ID = AA.CLIENT_ID
+				WHERE DISCONTINUE_POS_IN = 0 OR
+					  DISCONTINUE_PCS_IN = 0 OR
+					  DISCONTINUE_MOR_IN = 0
+				ORDER BY AA.CLIENT_ID, A.CLT_PLAN_GROUP_ID
+				) BY DB2;
+				DISCONNECT FROM DB2;
+			QUIT;
+
+			%SET_ERROR_FL;
+
+		%END;
+
+ 		%LET RESOLVE_CLIENT_TBL_EXIST_FLAG = 1;
+
+	%END;
+
+%*SASDOC -----------------------------------------------------------------------------------------
+ | IF ROW EXISTS IN TPGMTASK_QL_RUL
+ +------------------------------------------------------------------------------------------SASDOC;
+
+	%ELSE %IF &ROWS_EXIST_QL_RUL >= 1 %THEN %DO;
+
+%*SASDOC -----------------------------------------------------------------------
+ | CREATE A DATASET CPG_HIERARCHIES WITH FULL CPG LIST ALONG WITH CLT_SETUP_DEF_CD THAT IS 
+ | SPECIFIED IN TPGMTASK_QL_RUL.
+ +-------------------------------------------------------------------------SASDOC;
+
+		PROC SQL NOPRINT;
+        	CONNECT TO DB2 AS DB2(DSN=&UDBSPRP.);
+			CREATE TABLE DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. AS
+        	SELECT * FROM CONNECTION TO DB2
+   			(
+			SELECT DISTINCT AA.CLIENT_ID, BB.CLT_PLAN_GROUP_ID,
+         		   BB.PLAN_CD, BB.PLAN_EXTENSION_CD,
+		 		   BB.GROUP_CD, BB.GROUP_EXTENSION_CD,
+		 		   BB.BLG_REPORTING_CD, BB.GROUP_CLASS_CD, 
+				   BB.SEQUENCE_NB, ' ' AS PLAN_NM, C.CLT_SETUP_DEF_CD
+			FROM  &CLAIMSA..TCLIENT1 AA
+			INNER JOIN
+        		  (SELECT A.*, B.GROUP_CLASS_CD, B.SEQUENCE_NB
+                   FROM &CLAIMSA..TCPGRP_CLT_PLN_GR1 A
+				       ,&CLAIMSA..TRPTDT_RPT_GRP_DTL B
+				   WHERE A.CLT_PLAN_GROUP_ID=B.CLT_PLAN_GROUP_ID) BB
+			ON BB.CLIENT_ID = AA.CLIENT_ID
+			INNER JOIN
+				  &HERCULES..TPGMTASK_QL_RUL C
+			ON AA.CLIENT_ID = C.CLIENT_ID AND 
+			   C.PROGRAM_ID = &PROGRAM_ID. AND
+			   C.TASK_ID = &TASK_ID. AND
+			   CURRENT DATE BETWEEN C.EFFECTIVE_DT AND C.EXPIRATION_DT
+			WHERE DISCONTINUE_POS_IN = 0 OR
+				  DISCONTINUE_PCS_IN = 0 OR
+				  DISCONTINUE_MOR_IN = 0
+			ORDER BY AA.CLIENT_ID, BB.CLT_PLAN_GROUP_ID
+			);
+			DISCONNECT FROM DB2;
+		QUIT;
+
+   TITLE1 "CLINET IDs FOR &INITIATIVE_ID. ";
+   PROC SQL;
+      SELECT DISTINCT(CLIENT_ID)
+      FROM DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID.
+      ;
+   QUIT;
+
+		%SET_ERROR_FL;
+
+%*SASDOC -----------------------------------------------------------------------
+ | DATASET PLAN_NM FROM CLAIMSA.TPBW_TEMP_CNVRT TABLE FILTERED BASED ON THE
+ | RULES PROVIDED IN HERCULES.TPGMTASK_QL_RUL
+ +-------------------------------------------------------------------------SASDOC;
+
+		PROC SQL NOPRINT;
+	        CONNECT TO DB2 AS DB2(DSN=&UDBSPRP.);
+			CREATE TABLE PLAN_NM AS
+	        SELECT * FROM CONNECTION TO DB2
+	   		(
+		 	SELECT 	BENEFACTOR_CLT_ID AS CLIENT_ID,
+		        	PCL_PBT_ID, 
+		        	MOR_PBT_ID, 
+		        	POS_PBT_ID, 					
+					UPPER(LTRIM(RTRIM(PB_LISTING_NM))) AS PLAN_NM
+		 	FROM 	&CLAIMSA..TPBW_TEMP_CNVRT A,
+		      		(SELECT CLIENT_ID, PLAN_NM 
+					FROM &HERCULES..TPGMTASK_QL_RUL RL
+					WHERE RL.PROGRAM_ID = &PROGRAM_ID.
+					  AND RL.TASK_ID = &TASK_ID.
+					  AND CURRENT DATE BETWEEN RL.EFFECTIVE_DT AND RL.EXPIRATION_DT
+				  	  AND (PLAN_NM IS NOT NULL OR PLAN_NM <> ' ') ) B
+		 	WHERE 	A.BENEFACTOR_CLT_ID = B.CLIENT_ID AND
+		       		UPPER(LTRIM(RTRIM(A.PB_LISTING_NM))) =  UPPER(LTRIM(RTRIM(B.PLAN_NM))) 
+			ORDER BY CLIENT_ID, PLAN_NM
+	  		);
+	    	DISCONNECT FROM DB2;
+
+			SELECT COUNT(*) INTO :PLNMCNT
+			FROM PLAN_NM;
+
+		QUIT;
+
+		%SET_ERROR_FL;
+
+		%IF &PLNMCNT >= 1 %THEN %DO;
+
+%*SASDOC -----------------------------------------------------------------------
+ | TRANSPOSE COLUMNS PCL_PBT_ID, MOR_PBT_ID, POS_PBT_ID IN DATASET PLAN_NM AND
+ | STORE IT AS PB_ID
+ +-------------------------------------------------------------------------SASDOC;
+
+			DATA TEMP1 (KEEP=CLIENT_ID PCL_PBT_ID PLAN_NM RENAME=(PCL_PBT_ID=PB_ID))
+			     TEMP2 (KEEP=CLIENT_ID MOR_PBT_ID PLAN_NM RENAME=(MOR_PBT_ID=PB_ID))
+			     TEMP3 (KEEP=CLIENT_ID POS_PBT_ID PLAN_NM RENAME=(POS_PBT_ID=PB_ID));
+			 SET PLAN_NM;
+			RUN;
+
+			PROC SQL;
+              CREATE TABLE PLAN_NM AS
+			  SELECT *, 'PCL_PBT_ID' AS PBT_TYPE
+			  FROM TEMP1
+			  UNION
+			  SELECT *, 'MOR_PBT_ID' AS PBT_TYPE
+			  FROM TEMP2
+			  UNION
+			  SELECT *, 'POS_PBT_ID' AS PBT_TYPE
+			  FROM TEMP3;
+			QUIT;
+
+			PROC SORT DATA = PLAN_NM ;
+				BY PBT_TYPE;
+			RUN;
+
+		%SET_ERROR_FL;
+
+%*SASDOC -----------------------------------------------------------------------
+ | RECREATE DATASET PLAN_NM BY REMOVING ROWS BASED ON DELIVERY_SYSTEM_CD EXCLUSIONS 
+ | PROVIDED IN HERCULES.TDELIVERY_SYS_EXCL
+ +-------------------------------------------------------------------------SASDOC;
+
+		PROC SQL;
+		 CREATE TABLE PLAN_NM2 AS
+		 SELECT DISTINCT A.CLIENT_ID, A.PLAN_NM, A.PB_ID
+		 FROM PLAN_NM A
+		 WHERE NOT EXISTS  (SELECT 1
+	           				FROM &HERCULES..TDELIVERY_SYS_EXCL B
+			   				WHERE INITIATIVE_ID=&INITIATIVE_ID.
+	                          AND A.PBT_TYPE = CASE WHEN DELIVERY_SYSTEM_CD = 1 THEN 'PCL_PBT_ID' 
+			  			   							WHEN DELIVERY_SYSTEM_CD = 2 THEN 'POS_PBT_ID'
+						   							WHEN DELIVERY_SYSTEM_CD = 3 THEN 'MOR_PBT_ID'
+					                           END
+							);
+		QUIT;
+
+		%SET_ERROR_FL;
+
+%*SASDOC -----------------------------------------------------------------------
+ | RECREATE DATASET PLAN_NM TO BRING IN CLT_PLAN_GROUP_ID FROM CLAIMSA.TCPG_PB_TRL_HIST
+ +-------------------------------------------------------------------------SASDOC;
+
+		PROC SQL;
+		 CREATE TABLE PLAN_NM AS
+		 SELECT DISTINCT A.CLIENT_ID, A.PLAN_NM, A.PB_ID, B.CLT_PLAN_GROUP_ID
+		 FROM PLAN_NM2 A,
+		      &CLAIMSA..TCPG_PB_TRL_HIST B
+		 WHERE A.PB_ID = B.PB_ID AND
+		       TODAY() BETWEEN B.EFF_DT AND B.EXP_DT
+         ORDER BY CLIENT_ID, CLT_PLAN_GROUP_ID ;
+		QUIT;
+
+		%SET_ERROR_FL;
+
+%*SASDOC -----------------------------------------------------------------------
+ | RECREATE DATASET CPG_HIERARCHIES TO BRING IN PLAN_NM AS DERIVED ABOVE
+ +-------------------------------------------------------------------------SASDOC;
+
+		PROC SQL;
+		 CREATE TABLE DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. AS
+		 SELECT A.*, B.PLAN_NM
+		 FROM DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. (DROP=PLAN_NM) A
+		 LEFT JOIN
+		      PLAN_NM B
+		 ON A.CLIENT_ID = B.CLIENT_ID AND
+		    A.CLT_PLAN_GROUP_ID = B.CLT_PLAN_GROUP_ID;
+		QUIT;
+
+/*		%RESET_SQL_ERR_CD;*/
+/*		%SET_ERROR_FL;*/
+
+		%END;
+
+%*SASDOC ----------------------------------------------------------------------------
+ | WHOLE CLIENT INCLUSION: CLT_SETUP_DEF_CD=1.
+ | CREATE DATASET CLIENT_CPG_LIST WITH THE CONSTRAINT CLT_SETUP_DEF_CD=1.
+ +----------------------------------------------------------------------------SASDOC*;
+
+		PROC SQL NOPRINT;
+			CREATE TABLE DATA_RES.CLIENT_CPG_LIST_&INITIATIVE_ID. AS
+      		SELECT  DISTINCT A.CLIENT_ID, A.CLT_PLAN_GROUP_ID, A.CLT_SETUP_DEF_CD
+		 	FROM  DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. AS A
+		 	WHERE A.CLT_SETUP_DEF_CD = 1;
+		QUIT;
+
+		%SET_ERROR_FL;
+
+%*SASDOC -----------------------------------------------------------------------
+ | CREATE DATASET RULE_DEF WITH A LIST OF CLIENTID
+ | THEIR HIERARCHIES AND SET-UP DEFINITIONS (WHOLE CLIENT, CLIENT WITH EXCLUSIONS,
+ | PARTIAL CLIENT INCLUSIONS, FROM TABLES TINIT_CLIENT_RULE & TINIT_CLT_RULE_DEF
+ | IN HERCULES SCHEMA, ONLY FOR THE CLIENTS OF INTEREST
+ +-------------------------------------------------------------------------SASDOC;
+
+		PROC SQL NOPRINT;
+        	CONNECT TO DB2 AS DB2(DSN=&UDBSPRP.);
+			CREATE TABLE RULE_DEF AS
+        	SELECT * FROM CONNECTION TO DB2
+   			(
+			SELECT DISTINCT RL.*
+        	FROM &HERCULES..TPGMTASK_QL_RUL RL
+			WHERE  RL.PROGRAM_ID = &PROGRAM_ID. AND
+			   	   RL.TASK_ID = &TASK_ID. AND
+			   	   CURRENT DATE BETWEEN RL.EFFECTIVE_DT AND RL.EXPIRATION_DT
+			ORDER BY RL.CLIENT_ID
+  			);
+    		DISCONNECT FROM DB2;
+		QUIT;
+
+		%SET_ERROR_FL;
+
+			/** Added by LL 10/26/2012 **/	
+
+		   /** Reading is the wild cards * and allow for inclusion into the data **/
+
+		    %let dtin  = RULE_DEF; 
+			%let dtout = RULE_DEF; 
+
+			%let nm1 = ^in('CLIENT_ID' 'HSC_USR_ID' 'HSU_USR_ID' 'OVR_CLIENT_NM'); 
+			%let nm2 = ^in('CLIENT_ID' 'HSC_TS' 'EFFECTIVE_DT' 'EXPIRATION_DT' 'HSU_TS');
+
+	        proc contents data = &dtin out = t; run;
+
+		    proc sql; 
+		    select distinct(name) into: cvlist separated by ' '
+			from t
+			where upcase(name) &nm1   and type = 2;
+			
+			select distinct(count(*)) into: ccnt
+			from t
+			where upcase(name) &nm1   and type = 2;
+
+			select distinct(name) into: nvlist separated by ' '
+			from t
+			where upcase(name) &nm2   and type = 1;
+			
+			select distinct(count(*)) into: ncnt
+			from t
+			where upcase(name) &nm2   and type = 1;
+    	   quit;
+		   
+		   %put nvar_list = &nvlist;
+		   %put cvar_list = &cvlist;
+		   %put nmberc = &ccnt;
+		   %put numbern = &ncnt;
+
+		   %let cntc = %eval(&ccnt);
+		   %put cntc = &cntc;
+
+		   %let cntn = %eval(&ncnt);
+		   %put cntn = &cntn;
+
+		   %let cvlst = &cvlist;
+		   %put cvlst = &cvlist;
+
+		   %let nvlst = &nvlist;
+		   %put nvlst = &nvlst;
+		
+	    	%macro vrlst(var1, cnt);	
+	 	     data &dtout; set &dt;
+			   length new_var1-new_var&cnt $3. frstc1-frstc&cnt $2.;
+
+			 array wldc    {*} &var1;
+			 array indxc   {*} indxc1-indxc&cnt;
+			 array new_var {*} new_var1-new_var&cnt; 
+			 array lng     {*} lng1-lng&cnt;
+			 array frtc    {*} frstc1-frstc&cnt;
+			
+			 /** Check for this variables in the data set the are defined as character **/
+
+			    %do i = 1 %to dim(wldc);
+				   indxc[i] = indexc (wldc[i], "*");
+				   %if %substr(upcase(wldc[i]), 1, 1) = '*'  
+			       %then new_var[i] = %substr(upcase(wldc[i]), 1, 3);
+				%end;
+				
+				/*** * at the end of the variable ***/
+				%do i = 1 %to dim(wldc);
+				 lng[i] = length(wldc[i]);
+				 %if %substr(upcase(wldc[i]), lng[i], 1) = '*' %then new_var[i] = %substr(wldc[i], 1, 2);
+				%end; 
+				%do i = 1 %to dim(wldc);
+				 %if compress(upcase(new_var[i]), '*') in ('CO' 'DC' 'ST') %then
+				 frtc[i] = compress(new_var[i], '*');
+
+				 /**** Make the dataset variable clean ****/
+				 %if upcase(frtc[i]) in('CO' 'DC' 'ST') %then wldc[i] = frtc[i];
+				%end; 
+				run;
+
+			   proc freq data = &dtout;
+			   tables new_var1-new_var&cnt frstc1-frstc&cnt &var1 indxc1-indxc&cnt/missing; run;
+			 %mend vrlst;
+
+			 %vrlst(&cvlst, &cntc);
+ 		 	 %vrlst(&nvlst, &ncnt);
+%*SASDOC -----------------------------------------------------------------------
+ | CREATE DATASET CPG_INCEXC WITH THE REQUIRED TABLE STRUCTURE.
+ | ROWS WILL BE INSERTED INTO THIS TABLE FOR INCLUDES AND EXCLUDES BASED ON HIERARCHY_CONS
+ +-------------------------------------------------------------------------SASDOC;
+
+		%LET HIERARCHY_CONS = %STR( AND (RULE.GROUP_CLASS_CD = 0 OR
+                 					CPG.GROUP_CLASS_CD = RULE.GROUP_CLASS_CD)
+            						AND (RULE.GROUP_CLASS_SEQ_NB = 0 OR
+                 					CPG.SEQUENCE_NB = RULE.GROUP_CLASS_SEQ_NB)
+            						AND (RULE.BLG_REPORTING_CD = ' ' OR
+                 					UPCASE(LEFT(TRIM(RULE.BLG_REPORTING_CD))) = UPCASE(LEFT(TRIM(CPG.BLG_REPORTING_CD))))
+            						AND (RULE.PLAN_CD_TX = ' ' OR
+                 					UPCASE(LEFT(TRIM(RULE.PLAN_CD_TX))) = UPCASE(LEFT(TRIM(CPG.PLAN_CD))))
+            						AND (RULE.PLAN_EXT_CD_TX = ' ' OR
+                 					UPCASE(LEFT(TRIM(RULE.PLAN_EXT_CD_TX))) = UPCASE(LEFT(TRIM(CPG.PLAN_EXTENSION_CD))))
+            						AND (RULE.GROUP_CD_TX = ' ' OR
+                 					UPCASE(LEFT(TRIM(RULE.GROUP_CD_TX))) = UPCASE(LEFT(TRIM(CPG.GROUP_CD))))
+            						AND (RULE.GROUP_EXT_CD_TX = ' ' OR 
+                 					UPCASE(LEFT(TRIM(RULE.GROUP_EXT_CD_TX))) = UPCASE(LEFT(TRIM(CPG.GROUP_EXTENSION_CD))))
+            						AND (RULE.PLAN_NM = ' ' OR 
+                 					UPCASE(LEFT(TRIM(RULE.PLAN_NM))) = UPCASE(LEFT(TRIM(CPG.PLAN_NM))))
+									);
+
+		PROC SQL NOPRINT;
+			CREATE TABLE DATA_RES.CPG_INCEXC_&INITIATIVE_ID.	AS
+      		SELECT  CPG.CLIENT_ID, CPG.CLT_PLAN_GROUP_ID, RULE.CLT_SETUP_DEF_CD
+			FROM  DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. AS CPG
+		     	 ,RULE_DEF RULE
+			WHERE CPG.CLIENT_ID = RULE.CLIENT_ID 
+		  	  AND CPG.CLT_SETUP_DEF_CD IN (2,3)
+		  	&HIERARCHY_CONS. 
+			ORDER BY CPG.CLIENT_ID, CPG.CLT_PLAN_GROUP_ID;
+		QUIT;
+
+		%SET_ERROR_FL;
+
+%*SASDOC ----------------------------------------------------------------------------
+ | CLIENT WITH EXCLUSIONS: CLT_SETUP_DEF_CD is 3
+ | INSERT INTO DATASET CLIENT_CPG_LIST WHERE CPGs ARE IN CPG_INCEXC 
+ | WITH CLT_SETUP_DEF_CD = 3
+ +----------------------------------------------------------------------------SASDOC*;
+
+		PROC SQL NOPRINT;
+			INSERT INTO DATA_RES.CLIENT_CPG_LIST_&INITIATIVE_ID.
+      		SELECT  DISTINCT A.CLIENT_ID, A.CLT_PLAN_GROUP_ID, B.CLT_SETUP_DEF_CD 
+		 	FROM  DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. AS A
+		      	 ,DATA_RES.CPG_INCEXC_&INITIATIVE_ID. B
+		 	WHERE B.CLT_SETUP_DEF_CD = 3 
+		      AND A.CLIENT_ID = B.CLIENT_ID
+		   	  AND A.CLT_PLAN_GROUP_ID = B.CLT_PLAN_GROUP_ID;
+		QUIT;
+
+		%SET_ERROR_FL;
+
+		PROC SORT DATA = DATA_RES.CLIENT_CPG_LIST_&INITIATIVE_ID.; 
+			BY CLIENT_ID CLT_PLAN_GROUP_ID;
+		RUN;
+
+%*SASDOC ----------------------------------------------------------------------------
+ | CLIENT WITH EXCLUSIONS AND WHOLE CLIENT EXCLUDE LOGIC.
+ | IF FOR A PROGRAM TASK, THERE EXISTS BOTH CLT_SETUP_DEF_CD 2 AND 4, THEN
+ | ONLY THE LOGIC FOR CLT_SETUP_DEF_CD = 2 EXECUTES AS IT TAKES CARE OF THE OTHER
+ | SCENERIO ALSO.
+ | IF EITHER CLT_SETUP_DEF_CD = 2 OR CLT_SETUP_DEF_CD = 4 THEN THE CORRESPONDING
+ | LOGIC EXECUTES.
+ +----------------------------------------------------------------------------SASDOC*;
+
+		PROC SQL NOPRINT;
+        	CONNECT TO DB2 AS DB2(DSN=&UDBSPRP.);
+			SELECT EXCCOUNT, MAX_DEF_CD
+			INTO :EXCCOUNT, :MAX_DEF_CD
+        	FROM CONNECTION TO DB2
+   			(
+			SELECT COUNT(DISTINCT CLT_SETUP_DEF_CD) as EXCCOUNT
+			      ,MAX(CLT_SETUP_DEF_CD) AS MAX_DEF_CD
+			FROM &HERCULES..TPGMTASK_QL_RUL 
+			WHERE PROGRAM_ID = &PROGRAM_ID. 
+		      AND TASK_ID = &TASK_ID. 
+		  	  AND CURRENT DATE BETWEEN EFFECTIVE_DT AND EXPIRATION_DT
+		  	  AND CLT_SETUP_DEF_CD IN (2,4));
+    		DISCONNECT FROM DB2;
+		QUIT;
+
+		%SET_ERROR_FL;
+
+%*SASDOC ----------------------------------------------------------------------------
+ | CLIENT WITH EXCLUSIONS: CLT_SETUP_DEF_CD is 2
+ | INSERT INTO DATASET CLIENT_CPG_LIST WHERE CPGs ARE NOT IN CPG_INCEXC 
+ | WITH CLT_SETUP_DEF_CD = 2, BUT IN CPG_HIERARCHIES WHERE CLT_SETUP_DEF_CD = 2 OR 
+ | CLT_SETUP_DEF_CD IS NULL
+ +----------------------------------------------------------------------------SASDOC*;
+		%IF (&EXCCOUNT = 1 AND &MAX_DEF_CD = 2) OR 
+			(&EXCCOUNT = 2 AND &MAX_DEF_CD = 4) 
+		%THEN %DO;
+
+			PROC SQL NOPRINT;
+				CREATE TABLE DATA_RES.CPG_HIERARCHIES2_&INITIATIVE_ID. AS
+      			SELECT  DISTINCT A.CLIENT_ID, A.CLT_PLAN_GROUP_ID, A.CLT_SETUP_DEF_CD
+		 		FROM  DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. AS A
+                WHERE A.CLT_SETUP_DEF_CD = 2 OR A.CLT_SETUP_DEF_CD IS NULL;
+			QUIT;
+
+            PROC SQL;
+				CREATE TABLE DATA_RES.CPG_INCEXC2_&INITIATIVE_ID. AS
+				SELECT B.CLIENT_ID, B.CLT_PLAN_GROUP_ID
+		        FROM DATA_RES.CPG_INCEXC_&INITIATIVE_ID. B
+                WHERE B.CLT_SETUP_DEF_CD = 2;
+			QUIT;
+
+			DATA DATA_RES.CLIENT_CPG_LIST_TMP_&INITIATIVE_ID.;
+				MERGE DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID.(WHERE=(CLT_SETUP_DEF_CD = 2 OR CLT_SETUP_DEF_CD IS NULL) IN=A)
+				      DATA_RES.CPG_INCEXC_&INITIATIVE_ID.(WHERE=(CLT_SETUP_DEF_CD = 2) IN=B);
+			    BY CLIENT_ID CLT_PLAN_GROUP_ID;
+                IF A AND NOT B THEN OUTPUT;
+            RUN; 
+
+			PROC SQL NOPRINT;
+				INSERT INTO DATA_RES.CLIENT_CPG_LIST_&INITIATIVE_ID.
+				SELECT CLIENT_ID, CLT_PLAN_GROUP_ID, CLT_SETUP_DEF_CD
+				FROM DATA_RES.CLIENT_CPG_LIST_TMP_&INITIATIVE_ID.;
+			QUIT;
+
+			%SET_ERROR_FL;
+
+		%END;
+
+		%ELSE %IF (&EXCCOUNT = 1 AND &MAX_DEF_CD = 4) 
+		%THEN %DO;
+
+%*SASDOC ----------------------------------------------------------------------------
+ | CLIENT WITH EXCLUSIONS: CLT_SETUP_DEF_CD is 4
+ | INSERT INTO DATASET CLIENT_CPG_LIST WHERE CPGs ARE IN CPG_INCEXC 
+ | WITH CLT_SETUP_DEF_CD = 4
+ +----------------------------------------------------------------------------SASDOC*;
+
+			PROC SQL NOPRINT;
+				INSERT INTO DATA_RES.CLIENT_CPG_LIST_&INITIATIVE_ID.
+      			SELECT  DISTINCT CLIENT_ID, CLT_PLAN_GROUP_ID, CLT_SETUP_DEF_CD
+		 		FROM  DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. 
+		 		WHERE CLT_SETUP_DEF_CD IS NULL; 
+			QUIT;
+
+			%SET_ERROR_FL;
+
+		%END;
+
+		PROC SORT DATA = DATA_RES.CLIENT_CPG_LIST_&INITIATIVE_ID. OUT=DATA_PND.CLIENT_CPG_LIST_&INITIATIVE_ID.; 
+			BY CLIENT_ID CLT_PLAN_GROUP_ID;
+		RUN;
+
+%*SASDOC -----------------------------------------------------------------------
+ | IF MACRO VARIABLE NO_OUTPUT_TABLES_IN = 1, EXIT THE PROCESS
+ +-------------------------------------------------------------------------SASDOC;
+ 
+		%IF &DFL_CLT_INC_EXU_IN. = 1 %THEN %DO;
+
+			DATA DATA_PND.CLIENT_CPG_LIST2_&INITIATIVE_ID.;
+				MERGE DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. (IN=A)
+			      	  DATA_PND.CLIENT_CPG_LIST_&INITIATIVE_ID. (IN=B);
+				BY CLIENT_ID CLT_PLAN_GROUP_ID;
+				IF A = 1 AND B = 0 THEN OUTPUT DATA_PND.CLIENT_CPG_LIST2_&INITIATIVE_ID.;
+			RUN;
+
+			%SET_ERROR_FL;
+
+		%END;
+
+%*SASDOC -----------------------------------------------------------------------
+ | GET THE LIST OF CLIENT_IDs AND STORE IT IN MV CLIENT_ID_CONDITION
+ +-------------------------------------------------------------------------SASDOC;
+
+		%IF &DFL_CLT_INC_EXU_IN. = 1 %THEN %DO;
+			%LET WHERE_CONS = %STR(WHERE CLT_SETUP_DEF_CD NOT IN (2,3));
+		%END;
+		%ELSE %IF &DFL_CLT_INC_EXU_IN. = 0 %THEN %DO;
+			%LET WHERE_CONS = %STR();
+		%END;
+
+		%IF &DFL_CLT_INC_EXU_IN. = 0 %THEN %DO;
+		PROC SQL NOPRINT;
+			SELECT DISTINCT CLIENT_ID
+            INTO :RESOLVE_CLIENT_IDS SEPARATED BY ' , '
+			FROM  DATA_PND.CLIENT_CPG_LIST_&INITIATIVE_ID.
+        	&WHERE_CONS.;
+		QUIT;
+		%END;
+		%ELSE %DO;
+		PROC SQL NOPRINT;
+			SELECT DISTINCT CLIENT_ID
+            INTO :RESOLVE_CLIENT_IDS SEPARATED BY ' , '
+			FROM  DATA_PND.CLIENT_CPG_LIST2_&INITIATIVE_ID.
+        	&WHERE_CONS.;
+		QUIT;
+		%END;
+
+		%SET_ERROR_FL;
+
+		%IF &RESOLVE_CLIENT_IDS NE %THEN %DO;
+			%LET CLIENT_ID_CONDITION = %STR(AND CLIENT_ID &CLIENT_CONDITION. IN (&RESOLVE_CLIENT_IDS.)); 
+			%LET CLIENT_ID_CONDITION2 = %STR(AND A.CLIENT_ID &CLIENT_CONDITION. IN (&RESOLVE_CLIENT_IDS.)); 
+		%END;
+		%ELSE %DO;
+		    %LET CLIENT_ID_CONDITION =;
+		    %LET CLIENT_ID_CONDITION2 =;
+		%END;
+
+		%PUT NOTE: RESOLVE_CLIENT_IDS=&RESOLVE_CLIENT_IDS;
+		%PUT NOTE: CLIENT_ID_CONDITION = &CLIENT_ID_CONDITION;
+
+
+		%IF &NO_OUTPUT_TABLES_IN.= 1 %THEN 
+			%GOTO EXIT;
+%*SASDOC ----------------------------------------------------------------------------
+ | CREATE TABLE &TBL_NAME_OUT. WITH DATASET CLIENT_CPG_LIST2
+ +----------------------------------------------------------------------------SASDOC*;
+ 
+		%IF &DFL_CLT_INC_EXU_IN. = 0 %THEN %DO;
+
+			PROC SQL;
+				CONNECT TO DB2 AS DB2(DSN=&UDBSPRP);
+				EXECUTE 
+				(
+				CREATE TABLE &TBL_NAME_OUT. AS
+				(SELECT RL.CLIENT_ID, CPG.CLT_PLAN_GROUP_ID
+				 FROM &HERCULES..TINIT_CLIENT_RULE RL,
+					  &CLAIMSA..TCPGRP_CLT_PLN_GR1 CPG)
+				 DEFINITION ONLY NOT LOGGED INITIALLY
+				)BY DB2;
+
+				EXECUTE
+				(
+				ALTER TABLE &TBL_NAME_OUT. ACTIVATE NOT LOGGED INITIALLY 
+				) BY DB2;
+			DISCONNECT FROM DB2;
+			QUIT;
+
+			%SET_ERROR_FL;
+
+			PROC SQL; 
+				INSERT INTO &TBL_NAME_OUT.
+				(CLIENT_ID, CLT_PLAN_GROUP_ID)
+   				SELECT DISTINCT CLIENT_ID, CLT_PLAN_GROUP_ID 
+				FROM DATA_PND.CLIENT_CPG_LIST_&INITIATIVE_ID.;
+			QUIT;
+
+			%SET_ERROR_FL;
+
+			PROC SQL; 
+				DROP TABLE DATA_PND.CLIENT_CPG_LIST_&INITIATIVE_ID.;
+			QUIT;
+
+			%SET_ERROR_FL;
+
+		%END;
+
+		%IF &DFL_CLT_INC_EXU_IN. = 1 %THEN %DO;
+
+			PROC SQL;
+				CONNECT TO DB2 AS DB2(DSN=&UDBSPRP);
+				EXECUTE 
+				(
+				CREATE TABLE &TBL_NAME_OUT. AS
+				(SELECT RL.CLIENT_ID, CPG.CLT_PLAN_GROUP_ID
+				 FROM &HERCULES..TINIT_CLIENT_RULE RL,
+					  &CLAIMSA..TCPGRP_CLT_PLN_GR1 CPG)
+				 DEFINITION ONLY NOT LOGGED INITIALLY
+				)BY DB2;
+
+				EXECUTE
+				(
+				ALTER TABLE &TBL_NAME_OUT. ACTIVATE NOT LOGGED INITIALLY 
+				) BY DB2;
+			DISCONNECT FROM DB2;
+			QUIT;
+
+			%SET_ERROR_FL;
+
+			PROC SQL; 
+				INSERT INTO &TBL_NAME_OUT.
+				(CLIENT_ID, CLT_PLAN_GROUP_ID)
+   				SELECT DISTINCT CLIENT_ID, CLT_PLAN_GROUP_ID 
+				FROM DATA_PND.CLIENT_CPG_LIST2_&INITIATIVE_ID.;
+			QUIT;
+
+			%SET_ERROR_FL;
+
+			PROC SQL; 
+				DROP TABLE DATA_PND.CLIENT_CPG_LIST2_&INITIATIVE_ID.;
+			QUIT;
+
+			%SET_ERROR_FL;
+
+		%END;
+
+	%LET RESOLVE_CLIENT_TBL_EXIST_FLAG = 1;
+
+	%END;
+
+%END;
+
+%SET_ERROR_FL;
+%ON_ERROR( ACTION=ABORT
+          ,EM_TO=&PRIMARY_PROGRAMMER_EMAIL
+          ,EM_SUBJECT=HCE SUPPORT: NOTIFICATION OF ABEND INITIATIVE_ID &INITIATIVE_ID
+          ,EM_MSG=%STR(A PROBLEM WAS ENCOUNTERED IN THE &MAC_NAME. MACRO PLEASE CHECK THE LOG ASSOCIATED WITH INITIATIVE_ID &INITIATIVE_ID.));
+
+%*SASDOC -----------------------------------------------------------------------
+ | INITIATIVE SETUP: TPROGRAM_TASK.DSPLY_CLT_SETUP_CD=2 OR OVRD_CLT_SETUP_IN = 1
+ | NOTE: THE SETUP CAN BE SPLIT INTO THREE CATEGORIES
+ |       1) WHOLE CLIENT INCLUSION, DEFAULT EXCLUDE IN COMMUNICATION ENGINE 
+ |          (TINIT_CLT_RULE_DEF.CLT_SETUP_DEF_CD = 1)
+ |       2) CLIENT WITH EXCLUSIONS 
+ |          (TINIT_CLT_RULE_DEF.CLT_SETUP_DEF_CD = 2)
+ |       3) PARTIAL CLIENT -INCLUSIONS ONLY 
+ |          (TINIT_CLT_RULE_DEF.CLT_SETUP_DEF_CD = 3)
+ +-------------------------------------------------------------------------SASDOC;
+
+%IF &DSPLY_CLT_SETUP_CD=1 %THEN %DO;
+
+%*SASDOC -----------------------------------------------------------------------
+ | CREATE A COMMA SEPARATED MACRO VARIABLE RESOLVE_CLIENT_IDS WITH THE LIST 
+ | OF CLIENT_IDs FROM TPGMTASK_QL_RUL BASED ON PROGRAM_ID AND TASK_ID
+ +-------------------------------------------------------------------------SASDOC;
+
+	%IF RESOLVE_CLIENT_EXCLUDE_FLAG=1 %THEN 
+		%LET STR_CLT_SETUP_DEF_CD=%STR(AND CLT_SETUP_DEF_CD = 1);
+	%ELSE
+		%LET STR_CLT_SETUP_DEF_CD=;
+
+	PROC SQL NOPRINT;
+ 		SELECT DISTINCT CLIENT_ID  
+ 		INTO :RESOLVE_CLIENT_IDS SEPARATED BY ','
+  		FROM &HERCULES..TINIT_CLT_RULE_DEF
+   		WHERE INITIATIVE_ID=&INITIATIVE_ID
+     	&STR_CLT_SETUP_DEF_CD. 
+	 	;
+	QUIT;
+
+	%SET_ERROR_FL;
+
+%*SASDOC -----------------------------------------------------------------------
+ | SETTING UP MACRO VARIABLE CLIENT_ID_CONDITION, WHICH CAN BE USED BY 
+ | THE PROCESS CALLING RESOLVE_CLIENT.SAS
+ | NOTE: REFERENCE TO MACRO VARIABLE CLIENT_CONDITION, IS OBTAINED 
+ | FROM RESOLVE_CLIENT.SAS 
+ +-------------------------------------------------------------------------SASDOC;
+
+	%IF &RESOLVE_CLIENT_IDS. NE %THEN  
+		%LET CLIENT_ID_CONDITION=%STR(AND CLIENT_ID &CLIENT_CONDITION. IN (&RESOLVE_CLIENT_IDS.));
+	%ELSE  
+		%LET CLIENT_ID_CONDITION=; 
+
+	%PUT NOTE: RESOLVE_CLIENT_IDS=&RESOLVE_CLIENT_IDS;
+	%PUT NOTE: CLIENT_ID_CONDITION = &CLIENT_ID_CONDITION;
+
+%*SASDOC -----------------------------------------------------------------------
+ | IF MACRO VARIABLE NO_OUTPUT_TABLES_IN = 1, EXIT THE PROCESS
+ +-------------------------------------------------------------------------SASDOC;
+ 
+	%IF &NO_OUTPUT_TABLES_IN.= 1 %THEN 
+		%GOTO EXIT;
+
+%*SASDOC -----------------------------------------------------------------------
+ | CREATE DATASET CPG_HIERARCHIES WITH A LIST OF CLIENTID
+ | ALONG WITH THEIR HIERARCHIES FROM TABLES TCPGRP_CLT_PLN_GR1 & TRPTDT_RPT_GRP_DTL
+ | IN CLAIMSA SCHEMA, ONLY FOR THE CLIENTS OF INTEREST
+ +-------------------------------------------------------------------------SASDOC;
+
+	PROC SQL NOPRINT;
+        CONNECT TO DB2 AS DB2(DSN=&UDBSPRP.);
+		CREATE TABLE DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. AS
+        SELECT * FROM CONNECTION TO DB2
+   		(
+		SELECT DISTINCT A.CLIENT_ID, A.CLT_PLAN_GROUP_ID,
+         				A.PLAN_CD, A.PLAN_EXTENSION_CD,
+		 				A.GROUP_CD, A.GROUP_EXTENSION_CD,
+		 				A.BLG_REPORTING_CD, B.GROUP_CLASS_CD, 
+						B.SEQUENCE_NB, ' ' AS PLAN_NM, C.CLT_SETUP_DEF_CD
+        FROM  &CLAIMSA..TCPGRP_CLT_PLN_GR1 A
+		INNER JOIN 
+              &HERCULES..TINIT_CLT_RULE_DEF C
+        ON A.CLIENT_ID = C.CLIENT_ID AND
+           C.INITIATIVE_ID=&INITIATIVE_ID.
+		INNER JOIN 
+			  &CLAIMSA..TRPTDT_RPT_GRP_DTL B
+        ON A.CLT_PLAN_GROUP_ID=B.CLT_PLAN_GROUP_ID
+		ORDER BY A.CLIENT_ID, A.CLT_PLAN_GROUP_ID
+		);
+		DISCONNECT FROM DB2;
+	QUIT;
+
+	%SET_ERROR_FL;
+%*SASDOC -----------------------------------------------------------------------
+ | DATASET PLAN_NM FROM CLAIMSA.TPBW_TEMP_CNVRT TABLE FILTERED BASED ON THE
+ | RULES PROVIDED IN HERCULES.TINIT_CLIENT_RULE
+ +-------------------------------------------------------------------------SASDOC;
+
+	PROC SQL NOPRINT;
+        CONNECT TO DB2 AS DB2(DSN=&UDBSPRP.);
+		CREATE TABLE PLAN_NM AS
+        SELECT * FROM CONNECTION TO DB2
+   		(
+	 	SELECT 	BENEFACTOR_CLT_ID AS CLIENT_ID,
+	        	PCL_PBT_ID, 
+	        	MOR_PBT_ID, 
+	        	POS_PBT_ID, 				
+				UPPER(LTRIM(RTRIM(PB_LISTING_NM))) AS PLAN_NM
+	 	FROM 	&CLAIMSA..TPBW_TEMP_CNVRT A,
+	      		(SELECT CLIENT_ID, PLAN_NM 
+				FROM &HERCULES..TINIT_CLIENT_RULE RL
+				WHERE RL.INITIATIVE_ID=&INITIATIVE_ID.
+			  	  AND (PLAN_NM IS NOT NULL OR PLAN_NM <> '') ) B
+	 	WHERE 	A.BENEFACTOR_CLT_ID = B.CLIENT_ID AND	       		
+				UPPER(LTRIM(RTRIM(A.PB_LISTING_NM))) =  UPPER(LTRIM(RTRIM(B.PLAN_NM)))
+		ORDER BY CLIENT_ID, PLAN_NM
+  		);
+    	DISCONNECT FROM DB2;
+
+		SELECT COUNT(*) INTO :PLNMCNT
+		FROM PLAN_NM;
+
+	QUIT;
+
+	%SET_ERROR_FL;
+
+	%IF &PLNMCNT >= 1 %THEN %DO;
+
+%*SASDOC -----------------------------------------------------------------------
+ | TRANSPOSE COLUMNS PCL_PBT_ID, MOR_PBT_ID, POS_PBT_ID IN DATASET PLAN_NM AND
+ | STORE IT AS PB_ID
+ +-------------------------------------------------------------------------SASDOC;
+
+			DATA TEMP1 (KEEP=CLIENT_ID PCL_PBT_ID PLAN_NM RENAME=(PCL_PBT_ID=PB_ID))
+			     TEMP2 (KEEP=CLIENT_ID MOR_PBT_ID PLAN_NM RENAME=(MOR_PBT_ID=PB_ID))
+			     TEMP3 (KEEP=CLIENT_ID POS_PBT_ID PLAN_NM RENAME=(POS_PBT_ID=PB_ID));
+			 SET PLAN_NM;
+			RUN;
+
+			PROC SQL;
+              CREATE TABLE PLAN_NM AS
+			  SELECT *, 'PCL_PBT_ID' AS PBT_TYPE
+			  FROM TEMP1
+			  UNION
+			  SELECT *, 'MOR_PBT_ID' AS PBT_TYPE
+			  FROM TEMP2
+			  UNION
+			  SELECT *, 'POS_PBT_ID' AS PBT_TYPE
+			  FROM TEMP3;
+			QUIT;
+
+			PROC SORT DATA = PLAN_NM;
+				BY PBT_TYPE;
+			RUN;
+
+		%SET_ERROR_FL;
+
+%*SASDOC -----------------------------------------------------------------------
+ | RECREATE DATASET PLAN_NM BY REMOVING ROWS BASED ON DELIVERY_SYSTEM_CD EXCLUSIONS 
+ | PROVIDED IN HERCULES.TDELIVERY_SYS_EXCL
+ +-------------------------------------------------------------------------SASDOC;
+
+		PROC SQL;
+		 CREATE TABLE PLAN_NM2 AS
+		 SELECT DISTINCT A.CLIENT_ID, A.PLAN_NM, A.PB_ID
+		 FROM PLAN_NM A
+		 WHERE NOT EXISTS  (SELECT 1
+	           				FROM &HERCULES..TDELIVERY_SYS_EXCL B
+			   				WHERE INITIATIVE_ID=&INITIATIVE_ID.
+	                          AND A.PBT_TYPE = CASE WHEN DELIVERY_SYSTEM_CD = 1 THEN 'PCL_PBT_ID' 
+			  			   							WHEN DELIVERY_SYSTEM_CD = 2 THEN 'POS_PBT_ID'
+						   							WHEN DELIVERY_SYSTEM_CD = 3 THEN 'MOR_PBT_ID'
+					                           END
+							)
+         ORDER BY PB_ID;
+		QUIT;
+
+		%SET_ERROR_FL;
+
+%*SASDOC -----------------------------------------------------------------------
+ | RECREATE DATASET PLAN_NM TO BRING IN CLT_PLAN_GROUP_ID FROM CLAIMSA.TCPG_PB_TRL_HIST
+ +-------------------------------------------------------------------------SASDOC;
+
+		PROC SQL;
+		 CREATE TABLE PLAN_NM AS
+		 SELECT DISTINCT A.CLIENT_ID, A.PLAN_NM, A.PB_ID, B.CLT_PLAN_GROUP_ID
+		 FROM PLAN_NM2 A,
+		      &CLAIMSA..TCPG_PB_TRL_HIST B
+		 WHERE A.PB_ID = B.PB_ID AND
+		       TODAY() BETWEEN B.EFF_DT AND B.EXP_DT
+         ORDER BY CLIENT_ID, CLT_PLAN_GROUP_ID ;
+		QUIT;
+
+	%SET_ERROR_FL;
+
+%*SASDOC -----------------------------------------------------------------------
+ | RECREATE DATASET CPG_HIERARCHIES TO BRING IN PLAN_NM AS DERIVED ABOVE
+ +-------------------------------------------------------------------------SASDOC;
+
+	PROC SQL;
+	 CREATE TABLE DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. AS
+	 SELECT A.*, B.PLAN_NM
+	 FROM DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID.(DROP=PLAN_NM) A
+	 LEFT JOIN
+	      PLAN_NM B
+	 ON A.CLIENT_ID = B.CLIENT_ID AND
+	    A.CLT_PLAN_GROUP_ID = B.CLT_PLAN_GROUP_ID;
+	QUIT;
+
+/*	%RESET_SQL_ERR_CD;*/
+/*	%SET_ERROR_FL;*/
+
+	%END;
+%*SASDOC -----------------------------------------------------------------------
+ | CREATE DATASET RULE_DEF WITH A LIST OF CLIENTID
+ | THEIR HIERARCHIES AND SET-UP DEFINITIONS (WHOLE CLIENT, CLIENT WITH EXCLUSIONS,
+ | PARTIAL CLIENT INCLUSIONS, FROM TABLES TINIT_CLIENT_RULE & TINIT_CLT_RULE_DEF
+ | IN HERCULES SCHEMA, ONLY FOR THE CLIENTS OF INTEREST
+ +-------------------------------------------------------------------------SASDOC;
+
+	PROC SQL NOPRINT;
+        CONNECT TO DB2 AS DB2(DSN=&UDBSPRP.);
+		CREATE TABLE RULE_DEF AS
+        SELECT * FROM CONNECTION TO DB2
+   		(
+		SELECT DISTINCT RL.*, SETUP.CLT_SETUP_DEF_CD
+        FROM  &HERCULES..TINIT_CLIENT_RULE RL,
+              &HERCULES..TINIT_CLT_RULE_DEF SETUP
+		WHERE RL.INITIATIVE_ID=&INITIATIVE_ID. 
+          AND RL.INITIATIVE_ID=SETUP.INITIATIVE_ID
+          AND RL.CLIENT_ID = SETUP.CLIENT_ID
+		ORDER BY RL.CLIENT_ID
+  		);
+    	DISCONNECT FROM DB2;
+	QUIT;
+
+	%SET_ERROR_FL;
+
+%*SASDOC ----------------------------------------------------------------------------
+ | WHOLE CLIENT INCLUSION: CLT_SETUP_DEF_CD=1.
+ | CREATE DATASET CLIENT_CPG_LIST WITH THE CONSTRAINT CLT_SETUP_DEF_CD=1.
+ +----------------------------------------------------------------------------SASDOC*;
+
+	PROC SQL NOPRINT;
+		CREATE TABLE DATA_PND.CLIENT_CPG_LIST_&INITIATIVE_ID. AS
+      	SELECT  DISTINCT A.CLIENT_ID, A.CLT_PLAN_GROUP_ID
+		 FROM  DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. AS A
+		 WHERE A.CLT_SETUP_DEF_CD = 1;
+	QUIT;
+
+	%SET_ERROR_FL;
+
+%*SASDOC -----------------------------------------------------------------------
+ | CREATE DATASET CPG_INCEXC WITH THE REQUIRED TABLE STRUCTURE.
+ | ROWS WILL BE INSERTED INTO THIS TABLE FOR INCLUDES AND EXCLUDES BASED ON HIERARCHY_CONS
+ +-------------------------------------------------------------------------SASDOC;
+
+	%LET HIERARCHY_CONS = %STR( AND (RULE.GROUP_CLASS_CD IS NULL OR
+                 					CPG.GROUP_CLASS_CD = RULE.GROUP_CLASS_CD)
+            					AND (RULE.GROUP_CLASS_SEQ_NB IS NULL OR
+                 					CPG.SEQUENCE_NB = RULE.GROUP_CLASS_SEQ_NB)
+            					AND (RULE.BLG_REPORTING_CD IS NULL OR
+                 					UPCASE(LEFT(TRIM(RULE.BLG_REPORTING_CD))) = UPCASE(LEFT(TRIM(CPG.BLG_REPORTING_CD))))
+            					AND (RULE.PLAN_CD_TX IS NULL OR  
+                 					UPCASE(LEFT(TRIM(RULE.PLAN_CD_TX))) = UPCASE(LEFT(TRIM(CPG.PLAN_CD))))
+            					AND (RULE.PLAN_EXT_CD_TX IS NULL OR
+                 					UPCASE(LEFT(TRIM(RULE.PLAN_EXT_CD_TX))) = UPCASE(LEFT(TRIM(CPG.PLAN_EXTENSION_CD))))
+            					AND (RULE.GROUP_CD_TX IS NULL OR
+                 					UPCASE(LEFT(TRIM(RULE.GROUP_CD_TX))) = UPCASE(LEFT(TRIM(CPG.GROUP_CD))))
+            					AND (RULE.GROUP_EXT_CD_TX IS NULL OR 
+                 					UPCASE(LEFT(TRIM(RULE.GROUP_EXT_CD_TX))) = UPCASE(LEFT(TRIM(CPG.GROUP_EXTENSION_CD))))
+            					AND ((RULE.PLAN_NM IS NULL OR RULE.PLAN_NM = ' ') OR
+                 					UPCASE(LEFT(TRIM(RULE.PLAN_NM))) = UPCASE(LEFT(TRIM(CPG.PLAN_NM))))
+								);
+
+	PROC SQL NOPRINT;
+		CREATE TABLE DATA_RES.CPG_INCEXC_&INITIATIVE_ID.	AS
+      	SELECT  CPG.CLIENT_ID, CPG.CLT_PLAN_GROUP_ID, RULE.CLT_SETUP_DEF_CD
+		FROM  DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. AS CPG
+		     ,RULE_DEF RULE
+		WHERE CPG.CLIENT_ID = RULE.CLIENT_ID 
+		  AND CPG.CLT_SETUP_DEF_CD IN (2,3)
+		  &HIERARCHY_CONS. 
+		ORDER BY CPG.CLIENT_ID, CPG.CLT_PLAN_GROUP_ID;
+	QUIT;
+
+	%SET_ERROR_FL;
+
+%*SASDOC ----------------------------------------------------------------------------
+ | CLIENT WITH EXCLUSIONS: CLT_SETUP_DEF_CD is 2
+ | INSERT INTO DATASET CLIENT_CPG_LIST WHERE CPGs ARE NOT IN CPG_INCEXC 
+ | WITH CLT_SETUP_DEF_CD = 2
+ +----------------------------------------------------------------------------SASDOC*;
+
+	PROC SQL NOPRINT;
+		INSERT INTO DATA_PND.CLIENT_CPG_LIST_&INITIATIVE_ID.
+      	SELECT  DISTINCT A.CLIENT_ID, A.CLT_PLAN_GROUP_ID
+		 FROM  DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. AS A
+         WHERE A.CLT_SETUP_DEF_CD = 2
+		   AND NOT EXISTS (SELECT B.CLIENT_ID, B.CLT_PLAN_GROUP_ID
+		                   FROM DATA_RES.CPG_INCEXC_&INITIATIVE_ID. B
+                           WHERE A.CLIENT_ID = B.CLIENT_ID
+						     AND B.CLT_SETUP_DEF_CD = 2
+						     AND A.CLT_PLAN_GROUP_ID = B.CLT_PLAN_GROUP_ID);
+	QUIT;
+
+	%SET_ERROR_FL;
+
+%*SASDOC ----------------------------------------------------------------------------
+ | CLIENT WITH EXCLUSIONS: CLT_SETUP_DEF_CD is 3
+ | INSERT INTO DATASET CLIENT_CPG_LIST WHERE CPGs ARE IN CPG_INCEXC 
+ | WITH CLT_SETUP_DEF_CD = 3
+ +----------------------------------------------------------------------------SASDOC*;
+
+	PROC SQL NOPRINT;
+		INSERT INTO DATA_PND.CLIENT_CPG_LIST_&INITIATIVE_ID.
+      	SELECT  DISTINCT A.CLIENT_ID, A.CLT_PLAN_GROUP_ID
+		 FROM  DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID. AS A
+		      ,DATA_RES.CPG_INCEXC_&INITIATIVE_ID. B
+		 WHERE B.CLT_SETUP_DEF_CD = 3 
+		   AND A.CLIENT_ID = B.CLIENT_ID
+		   AND A.CLT_PLAN_GROUP_ID = B.CLT_PLAN_GROUP_ID;
+	QUIT;
+
+	%SET_ERROR_FL;
+
+%*SASDOC ----------------------------------------------------------------------------
+ | CREATE TABLE CLIENT_CPG_LIST IN &DB2_TMP. WITH DATASET CLIENT_CPG_LIST
+ +----------------------------------------------------------------------------SASDOC*;
+	PROC SQL;
+		CONNECT TO DB2 AS DB2(DSN=&UDBSPRP);
+		EXECUTE 
+		(
+		CREATE TABLE &DB2_TMP..CLIENT_CPG_LIST_&INITIATIVE_ID. AS
+		(SELECT RL.CLIENT_ID, CPG.CLT_PLAN_GROUP_ID
+		 FROM &HERCULES..TINIT_CLIENT_RULE RL,
+			  &CLAIMSA..TCPGRP_CLT_PLN_GR1 CPG)
+		 DEFINITION ONLY NOT LOGGED INITIALLY
+		)BY DB2;
+
+		EXECUTE
+		(
+		ALTER TABLE &DB2_TMP..CLIENT_CPG_LIST_&INITIATIVE_ID. ACTIVATE NOT LOGGED INITIALLY 
+		) BY DB2;
+		DISCONNECT FROM DB2;
+	QUIT;
+
+	%SET_ERROR_FL;
+
+	PROC SQL; 
+		INSERT INTO &DB2_TMP..CLIENT_CPG_LIST_&INITIATIVE_ID.
+		(CLIENT_ID, CLT_PLAN_GROUP_ID)
+   		SELECT DISTINCT CLIENT_ID, CLT_PLAN_GROUP_ID 
+		FROM DATA_PND.CLIENT_CPG_LIST_&INITIATIVE_ID.;
+	QUIT;
+
+	%SET_ERROR_FL;
+
+	PROC SQL; 
+		DROP TABLE DATA_PND.CLIENT_CPG_LIST_&INITIATIVE_ID.;
+	QUIT;
+
+	%SET_ERROR_FL;
+
+%*SASDOC -----------------------------------------------------------------------------
+ | MERGE WITH CPG HISTORY TABLES TO GET CURRENT CPGs. 
+ | NEED TO AWARE THAT WHEN USING THE CURRENT CPGs TO SELECT CLAIMS SOME CLAIMS 
+ | WILL BE LEFT WHEN CLAIMS WERE COVERED UNDER OLDER CPGS.
+ +------------------------------------------------------------------------------SASDOC*;
+
+	PROC SQL;
+		CONNECT TO DB2 AS DB2(DSN=&UDBSPRP);
+		EXECUTE 
+		(
+		CREATE TABLE &TBL_NAME_OUT. AS
+		(SELECT RL.CLIENT_ID, CPG.CLT_PLAN_GROUP_ID
+		 FROM &HERCULES..TINIT_CLIENT_RULE RL,
+			  &CLAIMSA..TCPGRP_CLT_PLN_GR1 CPG)
+		 DEFINITION ONLY NOT LOGGED INITIALLY
+		)BY DB2;
+
+		EXECUTE
+		(
+		ALTER TABLE &TBL_NAME_OUT. ACTIVATE NOT LOGGED INITIALLY 
+		) BY DB2;
+		DISCONNECT FROM DB2;
+	QUIT;
+
+	PROC SQL;
+     	CONNECT TO DB2 AS DB2(DSN=&UDBSPRP);
+     	EXECUTE
+     	(
+		INSERT INTO &TBL_NAME_OUT. (CLIENT_ID, CLT_PLAN_GROUP_ID)
+		SELECT DISTINCT CPG_IN.*
+      	FROM &CLAIMSA..TCPGRP_CLT_PLN_GR1 CLT, 
+             &DB2_TMP..CLIENT_CPG_LIST_&INITIATIVE_ID. CPG_IN
+      	WHERE CPG_IN.CLIENT_ID =CLT.CLIENT_ID
+          AND CPG_IN.CLT_PLAN_GROUP_ID=CLT.CLT_PLAN_GROUP_ID
+          AND EXISTS
+            (SELECT 1
+             FROM &CLAIMSA..TCPG_PB_TRL_HIST CPG,
+                  &CLAIMSA..TPRESC_BENEFIT PB
+             WHERE CLT.CLT_PLAN_GROUP_ID = CPG.CLT_PLAN_GROUP_ID
+               AND CPG_IN.CLT_PLAN_GROUP_ID = CPG.CLT_PLAN_GROUP_ID
+               AND CPG.PB_ID = PB.PB_ID
+               AND CPG.EFF_DT <= CURRENT DATE
+               AND CPG.EXP_DT > CURRENT DATE
+               AND PB.BEGIN_FILL_DT <= CURRENT DATE
+               AND PB.END_FILL_DT > CURRENT DATE
+             )
+      	)BY DB2;
+      	DISCONNECT FROM DB2;
+    QUIT;
+
+	%SET_ERROR_FL;
+
+	%RUNSTATS(TBL_NAME=&TBL_NAME_OUT);
+
+	%DROP_DB2_TABLE(TBL_NAME=&DB2_TMP..CLIENT_CPG_LIST_&INITIATIVE_ID.);
+   	%NOBS(&TBL_NAME_OUT);
+
+    %IF &NOBS %THEN 
+		%LET RESOLVE_CLIENT_TBL_EXIST_FLAG=1;
+	%ELSE 
+		%LET RESOLVE_CLIENT_TBL_EXIST_FLAG=0;
+
+%END;
+
+%EXIT:;
+
+%*SASDOC -----------------------------------------------------------------------------
+ | IF TBL_NAME_IN AND TBL_NAME_OUT2 ARE PASSED AS INPUT PARAMETERS, THEN
+ | IF &EXECUTE_CONDITION_FLAG.=1 THEN 
+ |       POPULATE &TBL_NAME_OUT2. BASED ON &TBL_NAME_IN. AND &TBL_NAME_OUT.
+ | ELSE JUST CREATE &TBL_NAME_OUT2. AS AN ALIAS OF &TBL_NAME_IN. 
+ +------------------------------------------------------------------------------SASDOC*;
+
+%IF &TBL_NAME_IN. NE AND &TBL_NAME_OUT2. NE AND &ERR_FL=0 %THEN %DO;
+	%DROP_DB2_TABLE(TBL_NAME=&TBL_NAME_OUT2.);
+
+ 	%IF &EXECUTE_CONDITION_FLAG.=1 %THEN %DO;	
+
+  		PROC SQL;
+   			CONNECT TO DB2 AS DB2(DSN=&UDBSPRP);
+
+   			EXECUTE
+			(
+			CREATE TABLE &TBL_NAME_OUT2.	AS
+      		(SELECT  A.*
+			 FROM  &TBL_NAME_IN. AS A
+      		)DEFINITION ONLY NOT LOGGED INITIALLY
+	       	) BY DB2;
+
+   			EXECUTE
+	  		(
+			ALTER TABLE &TBL_NAME_OUT2. ACTIVATE NOT LOGGED INITIALLY
+			) BY DB2;    
+   			DISCONNECT FROM DB2;
+  		QUIT;
+
+   		%SET_ERROR_FL;
+
+		PROC SQL NOPRINT;
+        	CONNECT TO DB2 AS DB2(DSN=&UDBSPRP.);
+        	EXECUTE
+   			(
+			INSERT INTO &TBL_NAME_OUT2.
+    	    SELECT A.*
+		    FROM &TBL_NAME_IN. A
+            LEFT JOIN
+		 		 (SELECT *
+                  FROM &TBL_NAME_OUT.
+                  WHERE CLT_PLAN_GROUP_ID &HIERARCHY_CONDITION. ) B
+            ON A.CLT_PLAN_GROUP_ID = B.CLT_PLAN_GROUP_ID
+			)BY DB2;
+   			DISCONNECT FROM DB2;
+  		QUIT;
+
+		%SET_ERROR_FL;
+		%RUNSTATS(TBL_NAME=&TBL_NAME_OUT2.);
+
+	%END; /* END OF &EXECUTE_CONDITION_FLAG.=1, TRUE */ 
+	%ELSE %DO;
+		PROC SQL;
+   			CONNECT TO DB2 AS DB2(DSN=&UDBSPRP);
+   			EXECUTE
+			(CREATE ALIAS &TBL_NAME_OUT2.  
+				FOR &TBL_NAME_IN. 
+			) BY DB2;
+			DISCONNECT FROM DB2;
+		QUIT;
+
+		%SET_ERROR_FL;
+
+	%END; /* END OF &EXECUTE_CONDITION_FLAG.=1, FALSE */ 
+
+%END;
+
+%MACRO DROP_SAS_DSN(DSN = );
+
+%IF %SYSFUNC(EXIST(&DSN)) %THEN %DO;
+	PROC SQL; 
+		DROP TABLE &DSN.;
+	QUIT;
+%END;
+
+%MEND DROP_SAS_DSN;
+
+
+%DROP_SAS_DSN(DSN = DATA_RES.CPG_HIERARCHIES_&INITIATIVE_ID.);
+%DROP_SAS_DSN(DSN = DATA_RES.CLIENT_CPG_LIST_&INITIATIVE_ID.);
+%DROP_SAS_DSN(DSN = DATA_RES.CPG_INCEXC_&INITIATIVE_ID.);
+%DROP_SAS_DSN(DSN = DATA_RES.CPG_HIERARCHIES2_&INITIATIVE_ID.);
+%DROP_SAS_DSN(DSN = DATA_RES.CPG_INCEXC2_&INITIATIVE_ID.);
+%DROP_SAS_DSN(DSN = DATA_RES.CLIENT_CPG_LIST_TMP_&INITIATIVE_ID.);
+%MEND RESOLVE_CLIENT_QL;
+
