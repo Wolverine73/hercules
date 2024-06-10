@@ -7,11 +7,6 @@
 |           1) Create global macro variables.
 |           2) Create informat for converting three character month names
 |              to integers.
-+-----------------------------------------------------------------------------
- | HISTORY:  February 2004 - P. Wonders  - Original
- |           Hercules Version  2.0.1
- |           December 21, 2007 - G. Dudley
- |           Make poratable across all environments
 +----------------------------------------------------------------------HEADER*/
 
 /*SASDOC-----------------------------------------------------------------------
@@ -21,10 +16,8 @@
 |    MIME             file name mime
 |    SASDOC           html frame, body, & contents prefix
 +----------------------------------------------------------------------SASDOC*/
-/**** 12/21/07 G.O.D. changed sasprod to sas&sysmode*/
-%let SASDOC_START_DIR=/herc&sysmode/prg/;
-/**** 12/21/07 G.O.D. changed sasprod1 to sas&sysmode.1*/
-%let SASDOC_WEB_DIR  =/herc&sysmode/report_doc/PUB/sasdoc/;
+%let SASDOC_START_DIR=/herc&sysmode/prg/hercules;
+%let SASDOC_WEB_DIR  =/REPORTS_DOC/qat1/PUB/sasdoc/;
 %let MIME            =sas;
 %let PRG_NM          =SASDOC;
 
