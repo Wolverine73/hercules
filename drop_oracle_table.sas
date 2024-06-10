@@ -1,0 +1,89 @@
+/**HEADER------------------------------------------------------------------------------------
+|
+| PROGRAM NAME: DROP_ORACLE_TABLE
+|
+| PURPOSE: DROPS THE TABLE FROM ORACLE THAT IS PASSED IN MV TBL_NAME
+|
+| LOGIC: BASED ON THE SCHEMA PASSED IN THE MACRO VARIABLE TBL_NAME, LIBREF ORA_LBRF IS
+| ASSIGNED TO THE SCHEMA IN ORACLE AND THEN THE CODE CHECKS FOR THE EXISTENCE
+| OF THE TABLE IN SCHEMA IN ORACLE. IF TABLE EXISTS IT IS DROPPED.
+| REASON FOR DOING THIS IS BECAUSE THE EXISTENCE OF A TABLE IS CHECKED IMPLICITLY
+| USING A LIBNAME, BUT THE LIBNAME COULD HAVE BEEN ASSIGNED TO DB2.
+| FOR EXAMPLE QCPAP020 IS A LIBREF REFERRING TO SCHEMA QCPAP020 IN DB2, SO
+| IN ORDER FOR GENERATING A LIBREF FOR QCPAP020 SCHEMA IN ORACLE, THIS WORK AROUND
+| IS REQUIRED.
+|
+| INPUT:  
+|      MACRO VARIABLE 
+|			TBL_NAME
+|
+| EXAMPLE CALL: %DROP_ORACLE_TABLE(TBL_NAME = QCPAP020.T_9999_CPG)
+|
+|------------------------------------------------------------------------------------------
+| HISTORY: 
+| April, 2008 - Suresh - Hercules Version  2.1.01
+|               Initial Release
+| Jan, 2010   - G. Dudley 
+|               Added the PURGE option to the DROP TABLE statement
+|------------------------------------------------------------------------------------------
++---------------------------------------------------------------------------------*HEADER*/
+
+
+%MACRO DROP_ORACLE_TABLE(TBL_NAME=); 
+
+ %LET POS=%INDEX(&TBL_NAME,.); 
+ %LET SCHEMA=%SUBSTR(&TBL_NAME,1,%EVAL(&POS-1)); 
+ %LET TBL_NAME_SH=%SUBSTR(&TBL_NAME,%EVAL(&POS+1)); 
+
+ LIBNAME ORA_LBRF ORACLE schema=&SCHEMA. PATH=&GOLD.;
+
+ %IF %SYSFUNC(EXIST(ORA_LBRF.&TBL_NAME_SH)) %THEN %DO; 
+
+	DATA _NULL_;
+	 CALL SYMPUT ('TBL_NAME_SH1' , "'" || "%UPCASE(&TBL_NAME_SH)" || "'");
+	 CALL SYMPUT ('SCHEMA1' , "'" || "%UPCASE(&SCHEMA)" || "'");
+	RUN;
+
+	PROC SQL NOPRINT;
+			CONNECT TO ORACLE(PATH=&GOLD );
+        	SELECT CNT INTO :CNT
+            FROM CONNECTION TO ORACLE
+   			(
+    	    SELECT count(*) AS CNT
+		    FROM USER_SYNONYMS 
+			where Synonym_name = %quote(&TBL_NAME_SH1)
+			  AND TABLE_OWNER = %quote(&SCHEMA1)
+			);
+   			DISCONNECT FROM ORACLE;
+  	QUIT;
+
+	%IF &CNT = 1 %THEN %LET OBJECT_TYPE = SYNONYM;
+	             %ELSE %LET OBJECT_TYPE = TABLE;
+
+     PROC SQL; 
+     	CONNECT TO ORACLE(PATH=&GOLD); 
+     	EXECUTE 
+     	( 
+     	DROP &OBJECT_TYPE. &TBL_NAME. PURGE
+     	)BY ORACLE; 
+     	DISCONNECT FROM ORACLE; 
+    QUIT; 
+
+   %SET_ERROR_FL;
+
+	%IF &ERR_FL = 0 %THEN %DO;
+            %PUT NOTE: TABLE &TBL_NAME. HAS BEEN DROPPED;
+	%END;
+    %ELSE %DO;
+      		%PUT NOTE: ERROR ENCOUNTERED WHILE DROPPING &TBL_NAME. TABLE;
+			%PUT NOTE: ERROR MESSAGE - &SYSDBMSG.;
+	%END;
+
+ %END; 
+
+ %ELSE %DO;
+ 	%PUT NOTE: TABLE &TBL_NAME. DOES NOT EXIST;
+ %END;
+
+%MEND DROP_ORACLE_TABLE;
+

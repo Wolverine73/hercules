@@ -1,0 +1,126 @@
+/*HEADER---------------------------------------------------------------------------------------------------------
+|MACRO: EDW2UNIX.SAS
++-----------------------------------------------------------------------------------------------------------------
+| HISTORY:  n. williams created because we need are own custom code for this.
+| 
++-----------------------------------------------------------------------------------------------------------HEADER*/
+%MACRO EDW2UNIXNF(TBL_NM_IN=,
+			    TBL_NM_OUT=,
+				ADJ_ENGINE=);
+LIBNAME DATA    "/&DATA_DIR";
+
+*SASDOC----------------------------------------------------------------------------------------------------------
+|   IF ADJ_ENGINE = 2,3(RX/RE) THEN CREATE DATA SET ON UNIX BOX LOCATED AT /DATA/SASTEST(PROD)1/HERCULES2.1/.
+|	VALIDATE CARD HOLDER BENEFICIARY_ID ,IF ANY CHARACTER EXISTS ON DATA, TRUNCATE THOSE RECORDS.
+|	FORMAT DATA FOR THE FOLLOWING FIELDS :
+|	BIRTH_DT
+|   PT_BENEFICIARY_ID
+|	LAST_FILL_DT 
+|	CLIENT_ID
+|   CDH_BENEFICIARY_ID
+|	CLT_PLAN_GROUP_ID
+|   DRUG_NDC_ID FOR ALL THE PROGRAMS EXCEPT GENERIC_LAUNCH.
+|	FORMAT DATA FOR THE FOLLOWING FIELDS :
+|	BIRTH_DT
+|	PT_BENEFICIARY_ID
+|	CLIENT_ID
+|	CLT_PLAN_GROUP_ID FOR GENERIC_LAUNCH.
+|	FORMAT DATA FOR THE FOLLOWING FIELDS :
+|	VALIDATE PRESCRIBER ID ,IF ANY CHARACTER EXISTS ON DATA, TRUNCATE THOSE RECORDS.
+|   FORMAT DATA FOR THE FOLLOWING FIELDS :
+|	PRESCRIBER_ID FOR PROGRAM ID 105 AS WELL AS 106.
+|
+|	10MAY2008 - K.MITTAPALLI   - HERCULES VERSION  2.1.0.1
++-----------------------------------------------------------------------------------------------------------SASDOC*;
+
+%IF (&ADJ_ENGINE EQ 2 OR &ADJ_ENGINE EQ 3) %THEN %DO;
+								PROC SQL;
+								  CONNECT TO ORACLE(PATH=&GOLD);
+								  CREATE TABLE &TBL_NM_OUT. AS
+								  SELECT * FROM CONNECTION TO ORACLE
+								    (
+								    SELECT *
+								    FROM &TBL_NM_IN);
+								  DISCONNECT FROM ORACLE;
+								QUIT;
+
+DATA &TBL_NM_OUT.;
+ SET &TBL_NM_OUT.;
+
+			IF BIRTH_DT NOT IN(' ','.') AND LENGTH(BIRTH_DT) EQ 10 THEN 
+			   BIRTH_DT2 =INPUT(BIRTH_DT,YYMMDD10.);
+			   FORMAT BIRTH_DT2 DATE9.;
+			ELSE
+			   BIRTH_DT2 = .;
+
+			IF LAST_FILL_DT NOT IN(' ','.') AND LENGTH(LAST_FILL_DT) EQ 10 THEN 
+			   LAST_FILL_DT2 =INPUT(LAST_FILL_DT,YYMMDD10.);
+			   FORMAT LAST_FILL_DT2 DATE9.;
+			ELSE
+			   LAST_FILL_DT2 = .;
+			
+/*			IF CDH_BENEFICIARY_ID NOT IN(' ','.') THEN */
+/*		 	   CDH_BENEFICIARY_ID2 = INPUT(CDH_BENEFICIARY_ID,12.);*/
+/*			ELSE*/
+			   CDH_BENEFICIARY_ID2 = 000000;
+
+/*			IF CLT_PLAN_GROUP_ID NOT IN(' ','.') THEN */
+/*		       CLT_PLAN_GROUP_ID2 = INPUT(CLT_PLAN_GROUP_ID,8.);*/
+/*			ELSE*/
+/*		 	   CLT_PLAN_GROUP_ID2 = .; */
+   			   CLT_PLAN_GROUP_ID2 = 000000;
+
+			IF DRUG_NDC_ID NOT IN(' ','.') THEN 
+			   DRUG_NDC_ID2 = INPUT(DRUG_NDC_ID,20.);
+			ELSE
+			   DRUG_NDC_ID2 = .; 
+
+		 	CLIENT_ID2 = INPUT(CLIENT_ID,20.);
+
+			IF LANGUAGE_INDICATOR NOT IN(' ','.') THEN 
+		       LANGUAGE_INDICATOR2 = INPUT(LANGUAGE_INDICATOR,8.);
+			ELSE
+		 	   LANGUAGE_INDICATOR2 = .; 
+
+		DROP BIRTH_DT LAST_FILL_DT CLIENT_ID CDH_BENEFICIARY_ID DRUG_NDC_ID LANGUAGE_INDICATOR;
+		RENAME 	BIRTH_DT2 				= 	BIRTH_DT 
+				LAST_FILL_DT2 			= 	LAST_FILL_DT 
+				CLIENT_ID2 				= 	CLIENT_ID 
+				CDH_BENEFICIARY_ID2 	= 	CDH_BENEFICIARY_ID
+				CLT_PLAN_GROUP_ID2		=	CLT_PLAN_GROUP_ID 
+				DRUG_NDC_ID2			=	DRUG_NDC_ID
+				LANGUAGE_INDICATOR2=LANGUAGE_INDICATOR;
+		FORMAT PT_BENEFICIARY_ID 8. CDH_BENEFICIARY_ID 8. CLIENT_ID 4. CLT_PLAN_GROUP_ID 4.;
+RUN;
+
+%END;	/* END ADJ_ENGIN 2 AND 3 */
+
+%ELSE %IF &ADJ_ENGINE EQ 1 %THEN %DO;
+
+		*SASDOC----------------------------------------------------------------------------------------------------------
+		|   IF ADJ_ENGINE = 1(QL) THEN CREATE DATA SET ON UNIX BOX LOCATED AT /DATA/SASTEST(PROD)1/HERCULES2.1/.
+		|	FORMAT DATA FOR THE FOLLOWING FIELDS :
+		|	CLIENT_LEVEL_1
+		|
+		|	10MAY2008 - K.MITTAPALLI   - HERCULES VERSION  2.1.0.1
+		+-----------------------------------------------------------------------------------------------------------SASDOC*;
+
+						PROC SQL;
+						  CONNECT TO DB2 AS DB2(DSN=&UDBSPRP);
+						  CREATE TABLE &TBL_NM_OUT. AS
+						  SELECT * FROM CONNECTION TO DB2
+						    (
+						    SELECT *
+						    FROM &TBL_NM_IN);
+						  DISCONNECT FROM DB2;
+						QUIT;
+
+						DATA &TBL_NM_OUT.;
+						 SET &TBL_NM_OUT.;
+						 CLIENT_LEVEL_11 = LEFT(PUT(CLIENT_LEVEL_1,20.)) ; 
+						 DROP CLIENT_LEVEL_1; 
+						 RENAME CLIENT_LEVEL_11=CLIENT_LEVEL_1; 
+						 RUN;
+
+%END;
+%MEND EDW2UNIXNF;
