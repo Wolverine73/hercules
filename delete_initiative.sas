@@ -1,4 +1,3 @@
-
 /*HEADER------------------------------------------------------------------------
 |
 | PROGRAM:  delete_initiative.sas
@@ -28,12 +27,11 @@
 |Hercules Version  2.1.01
 |           18JUL2008 - SR           - ADDED DELETE SQLs FOR NEWLY CREATED DOCUMENT
 |                                      OVERRIDE TABLES.
+|           23FEB2012 - S.BILETSKY   - ADDED CHANGES TO SUBMIT IN BATCH.
+|										see QCPI208
+|
 +-----------------------------------------------------------------------HEADER*/
 %MACRO DELETE_INIT;
-
-%set_sysmode(mode=prod);
-
-%INCLUDE "/PRG/sas&sysmode.1/hercules/hercules_in.sas";  
 
    %IF &PHASE_SEQ_NB =1 %THEN %DO;
 
@@ -67,30 +65,46 @@
            DELETE FROM &HERCULES..TINIT_QL_DOC_OVR   WHERE INITIATIVE_ID = &INITIATIVE_ID;
            DELETE FROM &HERCULES..TINIT_RXCM_DOC_OVR WHERE INITIATIVE_ID = &INITIATIVE_ID;   
            DELETE FROM &HERCULES..TINIT_RECP_DOC_OVR WHERE INITIATIVE_ID = &INITIATIVE_ID;        
- 
+ /*QCPI208 ADDED PSG TABLES */
+		   DELETE FROM &HERCULES..TINIT_MOD3_DAT_IBEN3	WHERE INITIATIVE_ID = &INITIATIVE_ID;
+		   DELETE FROM &HERCULES..TINIT_MOD3_MSG_IBEN3  WHERE INITIATIVE_ID = &INITIATIVE_ID;
+           DELETE FROM &HERCULES..TINIT_MOD3_PRM_IBEN3  WHERE INITIATIVE_ID = &INITIATIVE_ID;
+
          QUIT;
     %END;
 
     PROC SQL;
-           /*                                     
-           DELETE FROM &HERCULES..TINITIATIVE_PHASE  WHERE INITIATIVE_ID = &INITIATIVE_ID AND PHASE_SEQ_NB = &PHASE_SEQ_NB;
-	*/
            DELETE FROM &HERCULES..TINIT_PHSE_RVR_DOM WHERE INITIATIVE_ID = &INITIATIVE_ID AND PHASE_SEQ_NB = &PHASE_SEQ_NB;
            DELETE FROM &HERCULES..TINIT_PHSE_CLT_DOM WHERE INITIATIVE_ID = &INITIATIVE_ID AND PHASE_SEQ_NB = &PHASE_SEQ_NB;
            DELETE FROM &HERCULES..TPHASE_DRG_GRP_DT  WHERE INITIATIVE_ID = &INITIATIVE_ID AND PHASE_SEQ_NB = &PHASE_SEQ_NB;
            DELETE FROM &HERCULES..TPHASE_RVR_FILE    WHERE INITIATIVE_ID = &INITIATIVE_ID AND PHASE_SEQ_NB = &PHASE_SEQ_NB;
            DELETE FROM &HERCULES..TSCREEN_STATUS     WHERE INITIATIVE_ID = &INITIATIVE_ID AND PHASE_SEQ_NB = &PHASE_SEQ_NB;
            DELETE FROM &HERCULES..TIBNFT_MODULE_STS  WHERE INITIATIVE_ID = &INITIATIVE_ID AND PHASE_SEQ_NB = &PHASE_SEQ_NB;
-               
-/*ADDED PSG TABLES */
-		   DELETE FROM &HERCULES..TINIT_MOD3_DAT_IBEN3	WHERE INITIATIVE_ID = &INITIATIVE_ID AND PHASE_SEQ_NB = &PHASE_SEQ_NB;
-		   DELETE FROM &HERCULES..TINIT_MOD3_MSG_IBEN3  WHERE INITIATIVE_ID = &INITIATIVE_ID AND PHASE_SEQ_NB = &PHASE_SEQ_NB;
-           DELETE FROM &HERCULES..TINIT_MOD3_PRM_IBEN3  WHERE INITIATIVE_ID = &INITIATIVE_ID AND PHASE_SEQ_NB = &PHASE_SEQ_NB;
-
 
      QUIT;
 
-
 %MEND DELETE_INIT;
-	
+
+/*Add to delete pending dataset and unnessesary temp tables - Phase 2*/
+
+%set_sysmode(mode=prod);
+
+%INCLUDE "/herc&sysmode./prg/hercules/hercules_in.sas"; 
+
+*SASDOC=====================================================================;
+*  QCPI208
+*  Call update_request_ts to signal the start of delete initiative in batch
+*====================================================================SASDOC*;
+
+%update_request_ts(start);
+
 %DELETE_INIT;
+
+*SASDOC=====================================================================;
+* QCPI208
+* Call update_request_ts to complete of delete initiative in batch
+*====================================================================SASDOC*;
+
+%update_request_ts(complete);
+
+
