@@ -1,0 +1,2066 @@
+1                                                          The SAS System                             17:40 Saturday, March 30, 2013
+
+NOTE: Unable to open SASUSER.REGSTRY. WORK.REGSTRY will be opened instead.
+NOTE: All registry changes will be lost at the end of the session.
+
+WARNING: Unable to copy SASUSER registry to WORK registry. Because of this, you will not see registry customizations during this 
+         session.
+NOTE: Copyright (c) 2002-2003 by SAS Institute Inc., Cary, NC, USA. 
+NOTE: SAS (r) 9.1 (TS1M3)
+      Licensed to CVS PHARMACY INC, Site 0031083008.
+NOTE: This session is executing on the AIX 6.1 platform.
+
+
+
+NOTE: SAS 9.1.3 Service Pack 4
+
+You are running SAS 9. Some SAS 8 files will be automatically converted 
+by the V9 engine; others are incompatible.  Please see 
+http://support.sas.com/rnd/migration/planning/platform/64bit.html
+
+PROC MIGRATE will preserve current SAS file attributes and is 
+recommended for converting all your SAS libraries from any 
+SAS 8 release to SAS 9.  For details and examples, please see
+http://support.sas.com/rnd/migration/index.html
+
+
+This message is contained in the SAS news file, and is presented upon
+initialization.  Edit the file "news" in the "misc/base" directory to
+display site-specific news and information in the program log.
+The command line option "-nonews" will prevent this display.
+
+
+
+
+NOTE: SAS initialization used:
+      real time           0.04 seconds
+      cpu time            0.04 seconds
+      
+
+NOTE: AUTOEXEC processing beginning; file is /user1/qcpap020/autoexec.sas.
+
+NOTE: Libref CLAIMSA was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+NOTE: Libref QCPAP020 was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+NOTE: Libref EGTASK was successfully assigned as follows: 
+      Levels:           1
+      Engine(1):        V9 
+      Physical Name(1): /sas/saswork/SAS_work0DBE02EE00D8_prdsas1
+    SAS (r) Proprietary Software Release 9.1  TS1M3
+
+ SASAUTOS=("/PRG/sasprod1/hercules/macros"  '!SASROOT/sasautos' '/PRG/sasprod1/sas_macros')
+                   Search list for autocall macros
+
+NOTE: AUTOEXEC processing completed.
+
+1          %include '/user1/qcpap020/autoexec_new.sas';
+NOTE: Libref CLAIMSA was successfully assigned as follows: 
+2                                                          The SAS System                             17:40 Saturday, March 30, 2013
+
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+NOTE: Libref QCPAP020 was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+NOTE: Libref EGTASK was successfully assigned as follows: 
+      Levels:           1
+      Engine(1):        V9 
+      Physical Name(1): /sas/saswork/SAS_work0DBE02EE00D8_prdsas1
+    SAS (r) Proprietary Software Release 9.1  TS1M3
+
+ SASAUTOS=("/hercprod/prg/hercules/macros" "/PRG/sasprod1/hercules/macros"  '!SASROOT/sasautos' '/PRG/sasprod1/sas_macros')
+                   Search list for autocall macros
+131        
+132        /*HEADER------------------------------------------------------------------------
+133        |
+134        | PROGRAM:  hercules_task_master.sas
+135        |
+136        | LOCATION: /PRG/sas(%SYSMODE)1/hercules/gen_utilities/sas
+137        |
+138        | PURPOSE:  This program manages the contents of the Hercules Job Queue.
+139        |
+140        | LOGIC:    The program flows as follows:
+141        |
+142        |           (1) Identify all outstanding initiatives (sched time is not null and start time is null).
+143        |           (2) Of these, determine which initiatives have not already been scheduled.
+144        |           (3) Set DELETED_IN in JOB QUEUE table for jobs that were not selected in the step 1.
+145        |           (4) Physically delete old records from JOB_QUEUE((TODAY()- &NUMB_MONTHS_KEEP)) .
+146        |           (5) Submit jobs (from #2). This is done by first creating a temporary script file for each queue
+147        |			    that has commands for submitting as jobs one after another.  Below is an example of such
+148        |			    script file for the regular QUEUE_NB=1; The script file for batch QUEUE_NB=4 has a similar
+149        |				structure to the regular queue but with & added at the end of each sas command. The latter
+150        |				insures that the next command in the script executes immediately rather then wait for the previous command to
+150      ! complete.
+151        |
+152        |			/DATA/sas%lowcase(&SYSMODE)1/hercules/gen_utilities/job_queue/queue/queue_1.scr:
+153        -------------------------------------------------------------------------------------------
+154        cat /PRG/sastest1/hercules/gen_utilities/sas/job_queue_mgr_start.sas \
+155        /PRG/sastest1/hercules/106/eligibility_tasks.sas \
+156        /PRG/sastest1/hercules/gen_utilities/sas/job_queue_mgr_end.sas \
+157        >/DATA/sastest1/hercules/gen_utilities/job_queue/job_queue_mgr_tmp_fl_1_tmp.sas
+158        sas -sysin /DATA/sastest1/hercules/gen_utilities/job_queue/job_queue_mgr_tmp_fl_1_tmp.sas \
+159        -log /DATA/sastest1/hercules/106/logs/t_1094_1_task.log \
+160        -sysparm
+160      ! '~PROGRAM_ID=106~TASK_ID=8~INITIATIVE_ID=1094~PHASE_SEQ_NB=1~JOB_SCHEDULED_TS=09JUN2004:09:18:00.000000~QUEUE_NB=1' \
+161        -noterminal
+162        rm -f /DATA/sastest1/hercules/gen_utilities/job_queue/job_queue_mgr_tmp_fl_1_tmp.sas
+163        ---------------------------------------------------------------------------------------------------
+164        |		    The cat command in the above script sandwiches actual program between the statement
+165        |		   	%job_queue_mgr(S) and %job_queue_mgr(E). The primarily function of the macro %job_queue_mgr(S)
+166        |		    is to check one more time if job has to be run. If job was canceled then the macro stop
+167        |		    issues ENDSAS statement and the actual program do not execute. The macro also checks if
+168        |			if there is already a job with the same INITIATIVE_ID and PHASE_SEQ_NB running. If such jobs
+169        |		    exists then new jobs will not be submitted. This means that the old jobs must either complete
+170        |		    or to be killed by administrator before the new job with the same INITIATIVE_ID and PHASE_SEQ_NB
+171        |			is submitted. The macro %job_queue_mgr also updates the information in the queue table JOB_QUE_&SYSMODE..JOB_QUE.
+172        |			The latter information is used in job queue managing 	and auditing.
+173        |
+3                                                          The SAS System                             17:40 Saturday, March 30, 2013
+
+174        | ASSUMPTIONS:
+175        |
+176        |           (1) When task records exist in the JOB_QUEUE dataset but
+177        |               not in TINITIATIVE_PHASE, they are assumed to be job
+178        |               cancellations or rescheduled tasks and are processed as such.
+179        |
+180        | INPUT:    &HERCULES..TINITIATE_PHASE  - contains tasks to be queued.
+181        |           &HERCULES..TINITIAVE        - contains TASK_ID necessary for join
+182        |                                         to TPROGRAM_TASK.
+183        |           &HERCULES..TPROGRAM_TASK    - contains task program name/location.
+184        |           JOB_QUE.JOB_QUEUE           - "Hercules Job Queue" - a record of
+185        |                                         task programs submitted for execution.
+186        |
+187        | OUTPUT:   "batch" jobs      - submissions of Hercules Task Programs.
+188        |           JOB_QUE.JOB_QUEUE - an updated status of the "Hercules Job Queue".
+189        |
+190        +--------------------------------------------------------------------------------
+191        | HISTORY:  14APR2003 - L.Kummen  - Original after T.Kalfas hercules_task_master
+192        |           9JUN2004 - Y. Vilk
+193        |          03FEN2006 - G. DUDLEY  - Added logic to prevent duplicates records
+194        |                                   being inserted into JOB_QUE.JOB_QUEUE. This
+195        |                                   would cause an abend of the job.
+196        |          03FEN2006 - G. DUDLEY  - Added Proc report of duplicate task not
+197        |									loaded and the new task that will be loaded.
+198        |          10SEP2009 - N. WILLIAMS - Added logic for file release in batch.
+199        |          23FEB2012 - S. BILETSKY - Added logic for running Initiative Summary reports
+200        |									and Delete Initiative in batch. see QCPI208
+201        |	
+202        +------------------------------------------------------------------------HEADER*/
+203        
+204        %macro GETTASKS;
+205        %local DSID
+206               VAREXIST
+207               RC
+208               NEWOBS
+209               DELOBS
+210        	   SCHEDOBS
+211        	   MESSAGE_FOR_GETTASKS;
+212        %*SASDOC-----------------------------------------------------------------------
+213        | &JOB_SCHED_VAR is the number of minutes past JOB_SCHEDULES_TS that a job
+214        | will be put into the batch (4) queue , provided, it has not been already scheduled
+215        | in the regular (sequential) queue.
+216        | &NUMB_MONTHS_KEEP is number that the data in JOB_QUEUE are kept.
+217        +----------------------------------------------------------------------SASDOC*;
+218        
+219        %LET err_fl=0;
+220        %LET JOB_SCHED_VAR=2;
+221        %LET NUMB_MONTHS_KEEP=3;
+222        %LET DELOBS=0;
+223        %LET SCHEDOBS=0;
+224        
+225        %LET Q_SCRIPT=/herc%lowcase(&SYSMODE)/data/hercules/gen_utilities/job_queue/queue;
+226        LIBNAME ADM_LKP "/herc&sysmode./data/Admin/auxtable";
+227        
+228        PROC SQL NOPRINT;
+229          SELECT QUOTE(TRIM(EMAIL)) INTO :EMAIL_IT SEPARATED BY ' '
+230            FROM   ADM_LKP.ANALYTICS_USERS
+231            WHERE  UPCASE(QCP_ID) = "&USER";
+4                                                          The SAS System                             17:40 Saturday, March 30, 2013
+
+232         QUIT;
+233        
+234         DATA _NULL_;
+235          DATE_C=PUT(TODAY(),DOWNAME3.) || PUT(HOUR(TIME()),z2.) || PUT(MINUTE(TIME()),z2.);
+236          CALL SYMPUT('DATE_C',COMPRESS(DATE_C));
+237         RUN;
+238        
+239         %PUT DATE_C=&DATE_C;
+240        
+241        %*SASDOC-----------------------------------------------------------------------
+242        | Get all scheduled tasks from TINITIATIVE_PHASE where the JOB_START_TS is
+243        | greater or equal to the current time, and have not completed.
+244        |  10SEP2009 - N. WILLIAMS - Replaced HERCULES.VSCHED_INITIATIVES with the SQL
+245        |  code from that view and added additional fields I needed selected.
+246        |  Add sql code to remove file release initiatives from job_queue table so
+247        |  we can schedule them.
+248        |	23FEB2012 - S.Biletsky - Added
+249        +----------------------------------------------------------------------SASDOC*;
+250        PROC SQL NOPRINT;
+251           DELETE FROM  JOB_QUE.JOB_QUEUE
+252           WHERE  PROGRAM_ID IN (999,998,997); * QCPI208 - added 998 and 997;
+253        QUIT;
+254        %reset_sql_err_cd;
+255        
+256        *QCPI208 - added HCS_USR_ID to the query for 998 and 997;
+257        PROC SQL ;
+258        CONNECT TO DB2 AS DB2(DSN=&UDBSPRP);
+259         CREATE TABLE WORK.VSCHED_INITS AS
+260         select * from connection to db2 (
+261        (SELECT INIT.INITIATIVE_ID ,
+262        JOBS.PHASE_SEQ_NB ,
+263        INIT.PROGRAM_ID ,
+264        INIT.TASK_ID ,
+265        INIT.TITLE_TX ,
+266        JOBS.JOB_SCHEDULED_TS ,
+267        JOBS.JOB_START_TS ,
+268        JOBS.JOB_COMPLETE_TS ,
+269        TASK.PROGRAM_TASK_TX ,
+270        TASK.QUEUE_NB as ORG_QUEUE_NB ,
+271        TASK.QUEUE_NB as QUEUE_NB,
+272        TASK.QUEUE_NB as PARMTR_ID1,
+273        TASK.QUEUE_NB as PARMTR_ID2,
+274        JOBS.HSC_USR_ID as HSC_USR_ID
+275        FROM HERCULES.TINITIATIVE_PHASE JOBS ,
+276        HERCULES.TINITIATIVE INIT ,
+277        HERCULES.TPROGRAM_TASK TASK
+278        WHERE JOBS.JOB_SCHEDULED_TS IS NOT NULL
+279        AND JOBS.JOB_SCHEDULED_TS <= CURRENT TIMESTAMP
+280        AND JOBS.JOB_START_TS IS NULL
+281        AND JOBS.JOB_COMPLETE_TS IS NULL
+282        AND JOBS.INITIATIVE_ID = INIT.INITIATIVE_ID
+283        AND INIT.PROGRAM_ID = TASK.PROGRAM_ID
+284        AND INIT.TASK_ID = TASK.TASK_ID)
+285        UNION
+286        (SELECT REQ.REQUEST_ID AS INITIATIVE_ID ,
+287        1 AS PHASE_SEQ_NB ,
+288        REQ.REPORT_ID AS PROGRAM_ID ,
+289        REQ.REPORT_ID  AS TASK_ID ,
+5                                                          The SAS System                             17:40 Saturday, March 30, 2013
+
+290        RPT.RPT_DISPLAY_NM AS TITLE_TX ,
+291        REQ.JOB_REQUESTED_TS AS JOB_SCHEDULED_TS ,
+292        REQ.JOB_START_TS ,
+293        REQ.JOB_COMPLETE_TS ,
+294        RPT.SAS_PROGRAM_TX AS PROGRAM_TASK_TX ,
+295        RPT.QUEUE_NB AS ORG_QUEUE_NB ,
+296        RPT.QUEUE_NB AS  QUEUE_NB,
+297        REQ.REQUIRED_PARMTR_ID AS PARMTR_ID1,
+298        REQ.SEC_REQD_PARMTR_ID AS PARMTR_ID2,
+299        REQ.HSC_USR_ID AS HSC_USR_ID
+300        FROM HERCULES.TREPORT RPT,
+301        HERCULES.TREPORT_REQUEST REQ
+302        WHERE RPT.REPORT_ID=REQ.REPORT_ID
+303        AND REQ.JOB_REQUESTED_TS IS NOT NULL
+304        AND REQ.JOB_REQUESTED_TS <= CURRENT TIMESTAMP
+305        AND REQ.JOB_START_TS IS NULL
+306        AND REQ.JOB_COMPLETE_TS IS NULL      )
+307                );
+308        
+309        DISCONNECT FROM DB2;
+310        %PUT &SQLXRC &SQLXMSG;
+311        QUIT;
+312        %set_error_fl2;
+313        
+314        * QCPI208 - added HCS_USR_ID to the query for 998 and 997;
+315        PROC SQL NOPRINT;
+316           CREATE TABLE WORK.SCHED_TASKS AS
+317           SELECT  JOBS.INITIATIVE_ID
+318           		  ,JOBS.PHASE_SEQ_NB
+319        		  ,JOBS.JOB_SCHEDULED_TS
+320        		  ,JOBS.PROGRAM_ID
+321                  ,JOBS.TASK_ID
+322                  ,JOBS.TITLE_TX
+323                  ,JOBS.JOB_START_TS
+324                  ,JOBS.JOB_COMPLETE_TS
+325                  ,JOBS.PROGRAM_TASK_TX
+326                  ,JOBS.QUEUE_NB as ORG_QUEUE_NB
+327        		  ,JOBS.QUEUE_NB as QUEUE_NB
+328        		  ,JOBS.PARMTR_ID1
+329        		  ,JOBS.PARMTR_ID2
+330        		  ,JOBS.HSC_USR_ID
+331        		FROM   WORK.VSCHED_INITS JOBS
+332        		     WHERE  JOBS.JOB_START_TS     IS MISSING
+333                       AND  JOBS.JOB_COMPLETE_TS  IS MISSING
+334        		;
+335         QUIT;
+336          		 %set_error_fl2;
+337        
+338        %*SASDOC-----------------------------------------------------------------------
+339        | Set the parameters for error checking.
+340        | Filter out initiatives that have already been queued. initiative entries whose
+341        | scheduled time and/or queue assignments have changed, are considered
+342        | to be "new" entries.
+343        | 1) Create a table of scheduled initiatives already in job queue.
+344        | 2) Create a table of scheduled initiatives not in job queue.
+345        | 3) Create a table of queued initiatives not in scheduled initiatives.
+346        | 4) Delete scheduled initiatives already in job queue.
+347        | 5) Delete queued initiatives not in scheduled initiatives.
+6                                                          The SAS System                             17:40 Saturday, March 30, 2013
+
+348        +----------------------------------------------------------------------SASDOC*;
+349        
+350        proc sql noprint;
+351        create table WORK.SCHED_TASKS_NOT_QUEUED as
+352        select *
+353        from WORK.SCHED_TASKS SCHED
+354        where not exists (select *
+355                          from   JOB_QUE.JOB_QUEUE JOBQ
+356                          where  SCHED.INITIATIVE_ID    = JOBQ.INITIATIVE_ID
+357                             and SCHED.PHASE_SEQ_NB     = JOBQ.PHASE_SEQ_NB
+358                             and SCHED.JOB_SCHEDULED_TS = JOBQ.JOB_SCHEDULED_TS
+359        					 AND JOBQ.DELETED_IN=0
+360        				);
+361        QUIT;
+362         %set_error_fl2;
+363        
+364        %*SASDOC-----------------------------------------------------------------------
+365        | Identify initiatives that should be cancelled. These entries exist in the
+366        | Hercules Job Queue (JOB_QUE.JOB_QUEUE), but have been removed from
+367        | TINITIATIVE_PHASE (by users).
+368        |
+369        | NOTE: initiatives whose scheduled times entries have been
+370        |       changed are considered "new" entries.  The revised initiative entries
+371        |       in TINITIATIVE_PHASE result in new queue entries, but also in
+372        |       orphaned queue entries.  The orphaned initiative entries/jobs will be
+373        |       cancelled and removed from the job queue.
+374        +----------------------------------------------------------------------SASDOC*;
+375        
+376        PROC SQL NOPRINT;
+377        CREATE TABLE WORK.QUEUED_TASKS_NOT_SCHED AS
+378        SELECT *
+379        FROM   JOB_QUE.JOB_QUEUE JOBQ
+380        WHERE  NOT EXISTS (SELECT *
+381                            FROM   WORK.SCHED_TASKS SCHED
+382                            WHERE SCHED.INITIATIVE_ID    = JOBQ.INITIATIVE_ID
+383                               AND SCHED.PHASE_SEQ_NB     = JOBQ.PHASE_SEQ_NB
+384                               AND SCHED.JOB_SCHEDULED_TS = JOBQ.JOB_SCHEDULED_TS
+385        					)
+386         AND JOBQ.DELETED_IN=0
+387        ;
+388        
+389        SELECT COUNT(*) INTO :DELOBS
+390        FROM   WORK.QUEUED_TASKS_NOT_SCHED;
+391        QUIT;
+392        
+393         %set_error_fl2;
+394        
+395         %IF &err_fl=1 %THEN %GOTO EXIT_GETTASKS;
+396        %if (&DELOBS gt 0) %then
+397        %do;
+398        
+399        %*SASDOC-----------------------------------------------------------------------
+400        | delete jobs in job_que.job_queue that have been deleted from
+401        | TINITIATIVE_PHASE.
+402        +----------------------------------------------------------------------SASDOC*;
+403        
+404        
+405        
+7                                                          The SAS System                             17:40 Saturday, March 30, 2013
+
+406          PROC SQL NOPRINT;
+407           UPDATE  JOB_QUE.JOB_QUEUE  JOBQ
+408            SET DELETED_IN=1
+409           WHERE EXISTS (SELECT *
+410                         FROM  WORK.QUEUED_TASKS_NOT_SCHED QUEUED_NOT_SCHED
+411                         WHERE QUEUED_NOT_SCHED.INITIATIVE_ID    = JOBQ.INITIATIVE_ID
+412                           AND QUEUED_NOT_SCHED.PHASE_SEQ_NB     = JOBQ.PHASE_SEQ_NB
+413                           AND QUEUED_NOT_SCHED.JOB_SCHEDULED_TS = JOBQ.JOB_SCHEDULED_TS)
+414        			;
+415           DELETE
+416           FROM   JOB_QUE.JOB_QUEUE  JOBQ
+417           WHERE DELETED_IN=1
+418        	AND JOBQ.JOB_SCHEDULED_TS < DATETIME()-&NUMB_MONTHS_KEEP.*30*24*3600
+419        	      ;
+420        QUIT;
+421         %set_error_fl2;
+422        %end;
+423        
+424        
+425        
+426        PROC SQL NOPRINT;
+427        SELECT COUNT(*) INTO :SCHEDOBS
+428        FROM   WORK.SCHED_TASKS_NOT_QUEUED
+429        WHERE  PROGRAM_TASK_TX IS NOT NULL;
+430        QUIT;
+431         %set_error_fl2;
+432        %PUT SCHED_JOBS=&SCHEDOBS;
+433        %IF (&SCHEDOBS.= 0) %THEN %LET MESSAGE_FOR_GETTASKS=HCE SUPPORT: NO JOBS WERE SCHEDULED ;
+434        %IF (&SCHEDOBS.= 0) %THEN %GOTO EXIT_GETTASKS;
+435        
+436        PROC PRINTTO NEW
+437           LOG="/herc%lowcase(&SYSMODE.)/data/hercules/gen_utilities/job_queue/logs/hercules_task_master.&DATE_C.saslog";
+438        RUN;
+439        
+440        %*** &PRE is used to shorten the ERROR/WARNING/NOTE messages output to the log.  ;
+441        %let pre=%str('(HERCULES_TASK_MASTER): [PROGRAM ID: ' program_id +(-1) '; INITIATIVE ID: ')
+442                 %str(initiative_id +(-1) '; PHASE ID: ' phase_seq_nb +(-1) ']:');
+443        
+444        
+445        %*SASDOC-----------------------------------------------------------------------
+446        | Begin processing for queue-submission of new/revised task entries.
+447        +----------------------------------------------------------------------SASDOC*;
+448           data WORK.NEW_TASKS;
+449           set WORK.SCHED_TASKS_NOT_QUEUED end=EOF;
+450        
+451           length PDIR LDIR PGM LOG PARMS $1000 Message $ 5000
+452        		  REPORTS_STR $ 100  ; /*n. williams 10SEP2009 - change reports_str from 50 to 100*/
+453        
+454        
+455        
+456        %*SASDOC-----------------------------------------------------------------------
+457        | Check the new or revised tasks program parameters.
+458        +----------------------------------------------------------------------SASDOC*;
+459           if PROGRAM_TASK_TX = '' then
+460           do;
+461              ERR=1;
+462              put 'ERROR: ' &pre 'No task program specified.';
+463           end;
+8                                                          The SAS System                             17:40 Saturday, March 30, 2013
+
+464        
+465           if ^ERR then
+466           do;												/* Beggining of do-group ^ERR (1)*/
+467              IF intck('minute',JOB_SCHEDULED_TS,datetime()) GT &JOB_SCHED_VAR. THEN QUEUE_NB=4	;
+468              IF (QUEUE_NB = 4) and (ORG_QUEUE_NB ~= 4) THEN
+469                 PUT 'NOTE: ' &pre "Scheduled time is more than &JOB_SCHED_VAR minutes past current time "
+470                     '- submitting to batch queue for immediate execution.';
+471        
+472        	
+473        
+474        %*SASDOC-----------------------------------------------------------------------
+475        | Assemble parameters and SYSPARM for "batch" files.
+476        +----------------------------------------------------------------------SASDOC*;
+477        
+478            IF INITIATIVE_ID >= 100000	THEN DO;
+479        		IF PROGRAM_ID=30 THEN DO;
+480        			REPORTS_STR=  '~REQUEST_ID=' ||  COMPRESS(INITIATIVE_ID)
+481        				 || '~REPORT_ID=' || COMPRESS(PROGRAM_ID)
+482        				 || '~INITIATIVE_ID=' || COMPRESS(PARMTR_ID1)
+483        				 || '~PHASE_SEQ_NB=' || COMPRESS(PARMTR_ID2)
+484        				 || '~HSC_USR_ID=' || COMPRESS(HSC_USR_ID) ;									
+485        			reports_nm='reports/';
+486        		END;
+487        		ELSE IF PROGRAM_ID=31 THEN DO;
+488        			REPORTS_STR=  '~REQUEST_ID=' ||  COMPRESS(INITIATIVE_ID)
+489        				 || '~REPORT_ID=' || COMPRESS(PROGRAM_ID)
+490        				 || '~INITIATIVE_ID=' || COMPRESS(PARMTR_ID1)
+491        				 || '~PHASE_SEQ_NB=' || COMPRESS(PARMTR_ID2)
+492        				 || '~HSC_USR_ID=' || COMPRESS(HSC_USR_ID) ;									
+493        			reports_nm='reports/';
+494        		END;
+495        		ELSE IF PROGRAM_ID=32 THEN DO;
+496        			REPORTS_STR=  '~REQUEST_ID=' ||  COMPRESS(INITIATIVE_ID)
+497        				 || '~REPORT_ID=' || COMPRESS(PROGRAM_ID)
+498        				 || '~RPT_PROGRAM_ID=' || COMPRESS(PARMTR_ID1)
+499        				 || '~RPT_TASK_ID=' || COMPRESS(PARMTR_ID2)
+500        				 || '~HSC_USR_ID=' || COMPRESS(HSC_USR_ID) ;									
+501        			reports_nm='reports/';
+502        		END;
+503        		ELSE DO;
+504        			REPORTS_STR=  '~REQUEST_ID=' ||  COMPRESS(INITIATIVE_ID)
+505        			|| '~REPORT_ID=' || COMPRESS(PROGRAM_ID)
+506        			|| '~PHASE_SEQ_NB=' || COMPRESS(PARMTR_ID1)
+507        			|| '~HSC_USR_ID=' || COMPRESS(HSC_USR_ID) ;										
+508        			reports_nm='reports/';
+509        		END;
+510        	END;
+511        	ELSE DO;
+512        			REPORTS_STR='';								
+513        			reports_nm='';
+514        	END;
+515        
+516        	  IF PROGRAM_ID=999 THEN DO;
+517        			REPORTS_STR=  '~REQUEST_ID=' ||  COMPRESS(INITIATIVE_ID)
+518        			|| '~REPORT_ID=' || COMPRESS(PROGRAM_ID)
+519        			|| '~DOCUMENT_LOC_CD=' || COMPRESS(PARMTR_ID1)
+520        			|| '~CMCTN_ROLE_CD=' || COMPRESS(PARMTR_ID2)
+521        			|| '~HSC_USR_ID=' || COMPRESS(HSC_USR_ID);;
+9                                                          The SAS System                             17:40 Saturday, March 30, 2013
+
+522        			reports_nm='macros/';
+523        	  END;
+524        	  IF PROGRAM_ID=998 THEN DO;
+525        			REPORTS_STR=  '~REQUEST_ID=' ||  COMPRESS(INITIATIVE_ID)
+526        			|| '~REPORT_ID=' || COMPRESS(PROGRAM_ID)
+527        			|| '~PHASE_SEQ_NB=' || COMPRESS(PARMTR_ID1)
+528        			|| '~HSC_USR_ID=' || COMPRESS(HSC_USR_ID);
+529        			reports_nm='reports/';
+530        	  END;
+531        	  IF PROGRAM_ID=997 THEN DO;
+532        			REPORTS_STR=  '~REQUEST_ID=' ||  COMPRESS(INITIATIVE_ID)
+533        			|| '~REPORT_ID=' || COMPRESS(PROGRAM_ID)
+534        			|| '~PHASE_SEQ_NB=' || COMPRESS(PARMTR_ID1)
+535        			|| '~HSC_USR_ID=' || COMPRESS(HSC_USR_ID);
+536        			reports_nm='reports/';
+537        	  END;
+538        
+539        /*     IF INITIATIVE_ID >= 100000	THEN */
+540        /*									 DO;*/
+541        /*								REPORTS_STR=  '~REQUEST_ID=' ||  COMPRESS(INITIATIVE_ID)*/
+542        /*												  || '~REPORT_ID=' || COMPRESS(PROGRAM_ID) ;									*/
+543        /*								reports_nm='reports/';*/
+544        /*									END;*/
+545        /*		ELSE					    */
+546        /*									 DO;*/
+547        /*								REPORTS_STR='';								*/
+548        /*								reports_nm='';*/
+549        /*								    END;*/
+550        /**/
+551        /**/
+552        /*      IF PROGRAM_ID=999 THEN DO;*/
+553        /*			REPORTS_STR=  '~REQUEST_ID=' ||  COMPRESS(INITIATIVE_ID) || '~REPORT_ID=' || COMPRESS(PROGRAM_ID)
+553      ! ||'~DOCUMENT_LOC_CD=' || COMPRESS(PARMTR_ID1) */
+554        /*			|| '~CMCTN_ROLE_CD=' || COMPRESS(PARMTR_ID2) || '~HSC_USR_ID=' || COMPRESS(HSC_USR_ID);                       */
+555        /*			reports_nm='macros/';*/
+556        /*	  END;*/
+557        /**/
+558        /**/
+559        /*	   IF PROGRAM_ID=998 THEN DO;*/
+560        /*			REPORTS_STR=  '~REQUEST_ID=' ||  COMPRESS(INITIATIVE_ID) || '~REPORT_ID=' || COMPRESS(PROGRAM_ID) ||'~PHASE_SEQ_NB='
+560      !  || COMPRESS(PARMTR_ID1) || '~HSC_USR_ID=' || COMPRESS(HSC_USR_ID);                      */
+561        /*			reports_nm='reports/';*/
+562        /*	  END;*/
+563        /**/
+564        /**/
+565        /*	  IF PROGRAM_ID=997 THEN DO;*/
+566        /*			REPORTS_STR=  '~REQUEST_ID=' ||  COMPRESS(INITIATIVE_ID) || '~REPORT_ID=' || COMPRESS(PROGRAM_ID) ||'~PHASE_SEQ_NB='
+566      !  || COMPRESS(PARMTR_ID1) || '~HSC_USR_ID=' || COMPRESS(HSC_USR_ID);                      */
+567        /*			reports_nm='reports/';*/
+568        /*	  END;*/
+569        
+570        
+571              *** Determine the program directory and program name: account for paths in PROGRAM_TASK_TX ***;
+572              IF INDEX(PROGRAM_TASK_TX,'/') AND INITIATIVE_ID < 100000 THEN
+573              DO;
+574                 PDIR=substr(PROGRAM_TASK_TX,1,length(PROGRAM_TASK_TX)-index(left(reverse(PROGRAM_TASK_TX)),'/'));
+575                 PGM =substr(PROGRAM_TASK_TX,length(PROGRAM_TASK_TX)-index(left(reverse(PROGRAM_TASK_TX)),'/')+2);
+576              END;
+10                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+577              ELSE
+578              DO;
+579        
+580        	  *** NCW 09.10.2009 - Add custom for file release in Batch. QCPI208 included 998;
+581        /*        IF PROGRAM_ID^=. AND INITIATIVE_ID < 100000 AND (PROGRAM_ID^=999 AND TASK_ID^=999) */
+582        	  IF PROGRAM_ID^=. AND INITIATIVE_ID < 100000 AND PROGRAM_ID NOT IN (998,999,997)
+583        		 THEN PDIR="/herc%lowcase(&SYSMODE)/prg/hercules/"||trim(left(put(PROGRAM_ID,8.))) || '/';
+584                 ELSE  PDIR="/herc%lowcase(&SYSMODE)/prg/hercules/" || COMPRESS(reports_nm);
+585        
+586        		 PGM=program_task_tx;
+587        
+588        
+589                ***** Adjust the value of PROGRAM_TASK_TX to contain the default directory specification *****;
+590        		 IF INDEX(PGM,'/') =1 AND LENGTH(compress(PGM)) >1	THEN PGM=SUBSTR(compress(PGM),2);
+591        
+592        		  PROGRAM_TASK_TX=compress(PDIR) || compress(PGM);
+593              end;
+594              if ^ERR and ^fileexist(PROGRAM_TASK_TX) then
+595              do;
+596                 ERR=1;
+597                 put 'ERROR: ' &pre 'Specified task program (' +(-1) PROGRAM_TASK_TX +(-1) ') does not exist.';
+598              end;
+599              if ^ERR and abs(datepart(JOB_SCHEDULED_TS)-today()) >365 then
+600              do;
+601                 ERR=1;
+602                 put 'ERROR: ' &pre 'Scheduled datetime is more than a year from today.';
+603              end;
+604        
+605              if ^ERR then
+606              do;	  /* Beggining of do-group ^ERR (2)*/
+607        
+608                 *** Derive the task log directory and log name ***;
+609                * LDIR=tranwrd(compress(PDIR), '/PRG/', '/DATA/')||'/logs';
+610        	
+611        		 LDIR="/herc%lowcase(&SYSMODE)/data/hercules/" || COMPRESS(reports_nm)
+612        			  || COMPRESS(put(PROGRAM_ID,8.))
+613        			  || '/logs';
+614        
+615        		 *** NCW 09.10.2009 - Make release log filename according to naming conventions.;
+616        		 IF PROGRAM_ID=999 THEN
+617        		    LOG =compress(LDIR)||'/t_'||compress(put(INITIATIVE_ID,8.))
+618                      ||'_'||compress(put(PHASE_SEQ_NB,8.))||'_rls.log';
+619        		 ELSE
+620        		 	LOG =compress(LDIR)||'/t_'||compress(put(INITIATIVE_ID,8.))
+621                      ||'_'||compress(put(PHASE_SEQ_NB,8.))||'_task.log';
+622        
+623                 *** Make sure that the log directory exists.  If not, then create it. ***;
+624                 if ^fileexist(LDIR) then
+625                 do;
+626                    put 'NOTE: ' &PRE 'Creating directory ' LDIR '...';
+627        			
+628                    RC=system('mkdir -p '|| COMPRESS(LDIR));
+629                    if RC^=0 then
+630                    do;
+631                       put 'ERROR: ' &PRE 'Unable to create log directory ' LDIR;
+632                      /* LDIR=tranwrd(compress(PDIR), '/PRG/', '/DATA/');
+633                       put 'NOTE: ' &PRE 'ALTLOG reset to ' log;	*/
+634                    end;
+11                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+635                 end;	 /* End of do-group ^fileexist(LDIR) */
+636        
+637                 *** Build the SYSPARM parameter string ***;
+638                 PARMS= '~PROGRAM_ID=' || trim(left(put(PROGRAM_ID,8.)))
+639                       ||'~TASK_ID='||trim(left(put(TASK_ID,8.)))
+640                       ||'~INITIATIVE_ID=' ||trim(left(put(INITIATIVE_ID,8.)))
+641                       ||'~PHASE_SEQ_NB='||trim(left(put(PHASE_SEQ_NB,8.)))
+642        			   || COMPRESS(REPORTS_STR)
+643                       ||'~JOB_SCHEDULED_TS='||put(JOB_SCHEDULED_TS,datetime25.6)
+644                       ||'~QUEUE_NB='||trim(left(put(QUEUE_NB,8.)));
+645              end; 	/* End of do-group ^ERR (2)*/
+646           end;	 /* End of do-group ^ERR (1) */
+647          * LOG=  "/DATA/sas%lowcase(&SYSMODE)1/hercules"
+648               ||'/logs/t_'||compress(put(INITIATIVE_ID,8.))||'_'||compress(put(PHASE_SEQ_NB,8.))
+649               ||'_task.log';
+650        
+651           if ERR then DO;
+652              delete; *** Only keep the valid/queued task entries (to ease updates of job_id). ;
+653        	  CALL SYMPUT('err_fl',1);
+654        	    	   END;
+655        RUN;
+656             %set_error_fl2;
+657        
+658        
+659         *SASDOC-----------------------------------------------------------------------
+660         | Identify task that have been loaded into the job_que.job_queue SAS data set
+661         | already.
+662         +----------------------------------------------------------------------SASDOC*;
+663         PROC SQL NOPRINT;
+664           CREATE TABLE WORK.DUPLICATE_TASKS AS
+665           (SELECT PROGRAM_ID
+666                  ,TASK_ID
+667                  ,INITIATIVE_ID
+668                  ,TITLE_TX
+669                  ,PHASE_SEQ_NB
+670                  ,JOB_SCHEDULED_TS
+671                  ,PROGRAM_TASK_TX
+672                  ,QUEUE_NB
+673           FROM WORK.NEW_TASKS
+674           WHERE INITIATIVE_ID IN
+675           (SELECT INITIATIVE_ID
+676              FROM JOB_QUE.JOB_QUEUE)
+677         );
+678         QUIT;
+679             %set_error_fl2;
+680        
+681         *SASDOC-----------------------------------------------------------------------
+682         | Remove duplicate task.
+683         +----------------------------------------------------------------------SASDOC*;
+684         PROC SQL NOPRINT;
+685           CREATE TABLE WORK.NO_DUPLICATE_TASKS1 AS
+686           (SELECT *
+687           FROM WORK.NEW_TASKS
+688           WHERE INITIATIVE_ID NOT IN
+689           (SELECT INITIATIVE_ID
+690              FROM JOB_QUE.JOB_QUEUE) );
+691         QUIT;
+692        
+12                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+693         * QCPI208 - added changes for 998 and 997;
+694         PROC SQL NOPRINT;
+695           CREATE TABLE WORK.NO_DUPLICATE_TASKS2 AS
+696           (SELECT *
+697           FROM WORK.NEW_TASKS
+698           WHERE INITIATIVE_ID NOT IN
+699           (SELECT INITIATIVE_ID
+700              FROM JOB_QUE.JOB_QUEUE
+701              WHERE PROGRAM_ID IN (999,998,997))
+702           AND PROGRAM_ID IN (999,998,997));
+703         QUIT;
+704        
+705         DATA WORK.NO_DUPLICATE_TASKS;
+706          SET WORK.NO_DUPLICATE_TASKS1 WORK.NO_DUPLICATE_TASKS2;
+707         RUN;
+708        
+709         PROC SORT DATA=WORK.NO_DUPLICATE_TASKS NODUPKEY;
+710           BY INITIATIVE_ID PHASE_SEQ_NB JOB_SCHEDULED_TS;
+711         RUN;
+712             %set_error_fl2;
+713        
+714         PROC SQL NOPRINT;
+715           SELECT DISTINCT QUEUE_NB
+716           INTO   :QUEUE_NB_LST SEPARATED BY ','
+717           FROM WORK.NO_DUPLICATE_TASKS
+718           ORDER BY QUEUE_NB;
+719        		
+720             %set_error_fl2;
+721        
+722        PROC SQL NOPRINT;
+723           INSERT INTO JOB_QUE.JOB_QUEUE
+724              ( PROGRAM_ID,TASK_ID,INITIATIVE_ID,TITLE_TX,PHASE_SEQ_NB
+725               ,JOB_SCHEDULED_TS,PROGRAM_TASK_TX,QUEUE_NB,DELETED_IN)
+726           SELECT  PROGRAM_ID,TASK_ID,INITIATIVE_ID,TITLE_TX,PHASE_SEQ_NB
+727                  ,JOB_SCHEDULED_TS,PROGRAM_TASK_TX,QUEUE_NB,0
+728           FROM    WORK.NO_DUPLICATE_TASKS;
+729         QUIT;
+730               %set_error_fl2;
+731        
+732          PROC SQL NOPRINT;
+733           CREATE TABLE WORK.NO_DUPLICATE_TASKS AS
+734           SELECT  *
+735           FROM    WORK.NO_DUPLICATE_TASKS
+736           ORDER BY QUEUE_NB, JOB_SCHEDULED_TS, INITIATIVE_ID, PHASE_SEQ_NB;
+737           QUIT;
+738        		 %set_error_fl2;
+739        
+740           %IF &err_fl=1 %THEN %GOTO EXIT_GETTASKS;
+741           %let JOB_QUEUE_MGR_S=/herc%lowcase(&SYSMODE)/prg/hercules/gen_utilities/sas/job_queue_mgr_start.sas;
+742           %let JOB_QUEUE_MGR_E=/herc%lowcase(&SYSMODE)/prg/hercules/gen_utilities/sas/job_queue_mgr_end.sas;
+743           %let JOB_QUEUE_MGR_TMP_FL=/herc%lowcase(&SYSMODE)/data/hercules/gen_utilities/job_queue/job_queue_mgr_tmp_fl;
+744           %let _NUM=1;
+745           %let _CUR_QUEUE_NB=%scan(%quote(&QUEUE_NB_LST),&_NUM,%str(,));
+746           %do %while(%str(&_CUR_QUEUE_NB) ne %str());
+747              data _NULL_;
+748              set WORK.NO_DUPLICATE_TASKS(where=(QUEUE_NB = &_CUR_QUEUE_NB));
+749              by QUEUE_NB JOB_SCHEDULED_TS INITIATIVE_ID PHASE_SEQ_NB;;
+750              if QUEUE_NB = 4 then
+13                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+751              do;
+752                 TMP_FL="&JOB_QUEUE_MGR_TMP_FL"||'_4_'||trim(left(put(PROGRAM_ID,8.)))
+753                        ||'_t_'||compress(put(INITIATIVE_ID,8.))||'_'||compress(put(PHASE_SEQ_NB,8.))
+754                        ||'_tmp.sas';
+755                 BATCH_AT='&';
+756              end;
+757              else
+758              do;
+759                 TMP_FL="&JOB_QUEUE_MGR_TMP_FL"||'_'||compress(put(QUEUE_NB,8.))||'_tmp.sas';
+760                 BATCH_AT=' ';
+761              end;
+762              line_1 ="cat &JOB_QUEUE_MGR_S \";
+763              line_2 ='    ' || trim(left(PROGRAM_TASK_TX)) || ' \';
+764              line_3 ="    &JOB_QUEUE_MGR_E \";
+765              line_4 ='    >' || trim(left(TMP_FL));
+766              line_5 ='sas -sysin ' || trim(left(TMP_FL)) || ' \';
+767              line_6 ='    -log ' || compress(log) || ' \';
+768              line_7 ="    -sysparm '" || trim(left(PARMS)) || "' \";
+769              line_8 ='    -noterminal ' || trim(BATCH_AT);
+770        /*	  line_9 =' ';*/
+771              line_9 ='rm -f '|| trim(left(TMP_FL));
+772        
+773              file "&Q_SCRIPT._&_CUR_QUEUE_NB..scr" lrecl=32676;
+774              put @1 line_1 / @1 line_2 / @1 line_3 / @1 line_4 / @1 line_5
+775                / @1 line_6 / @1 line_7 / @1 line_8
+776        %*SASDOC-----------------------------------------------------------------------
+777        | If asynchronous batch then sleep for 5 seconds before deleting TMP_FL.
+778        +----------------------------------------------------------------------SASDOC*;
+779              %if (&_CUR_QUEUE_NB=4) %then
+780              %do;
+781                / @1 'sleep 5'
+782              %end;
+783                / @1 line_9;
+784              run;
+785                    %set_error_fl2;
+786        
+787        	%PUT ;
+788        	%PUT Contents of the file &Q_SCRIPT._&_CUR_QUEUE_NB..scr:;
+789        	%PUT ;
+790        
+791        	DATA _NULL_;
+792             INFILE "&Q_SCRIPT._&_CUR_QUEUE_NB..scr" lrecl=32676;
+793        	  INPUT;
+794              PUT _INFILE_;
+795            RUN;
+796        
+797              %sysexec chmod ugo+x &Q_SCRIPT._&_CUR_QUEUE_NB..scr;
+798              %sysexec . &Q_SCRIPT._&_CUR_QUEUE_NB..scr > &Q_SCRIPT._&_CUR_QUEUE_NB..syslog 2>&1 &;
+799        
+800        	  %IF &SYSRC NE 0 %THEN %LET err_fl=1;
+801              %let _NUM=%eval(&_NUM+1);
+802              %let _CUR_QUEUE_NB=%scan(%quote(&QUEUE_NB_LST),&_NUM,%str(,));
+803           %END; /* END OF %DO %WHILE LOOP.*/
+804        
+805        %EXIT_GETTASKS:;
+806        	
+807         %IF &err_fl=1 %THEN
+808        					%DO;
+14                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+809        			%PUT &err_fl=1;
+810        			%LET MESSAGE_FOR_GETTASKS=HCE SUPPORT: ERROR IN THE SCHEDULER hercules_task_master.sas ;
+811        			%email_parms(EM_TO=&EMAIL_IT.,
+812        			      			 EM_SUBJECT=&MESSAGE_FOR_GETTASKS.,
+813        			      			 EM_MSG=&MESSAGE_FOR_GETTASKS.. Some of the jobs were not scheduled. For detail see log in
+813      ! /herc%lowcase(&SYSMODE)/data/hercules/gen_utilities/job_queue/logs/ );
+814        					%END;
+815        
+816        %MEND GETTASKS;
+817        
+818        
+819        %set_sysmode(mode=prod);
+WARNING: Apparent symbolic reference SYSMODE not resolved.
+NOTE: Running from Hercules Macro library herc&sysmode
+NOTE: &SYSMODE=prod
+NOTE: &PRG_ROOT=/hercprod/prg
+NOTE: &DATA_ROOT=/hercprod/data
+NOTE: &RPT_ROOT=/hercprod/report_doc
+820        
+821        %LET DEBUG_FLAG=N;
+822        /*OPTION MLOGIC MPRINT SYMBOLGEN;*/
+823        options fullstimer mprint mlogic symbolgen source2 mprintnest mlogicnest;
+824        
+825        ODS LISTING CLOSE;
+826        %include "/herc&sysmode./prg/hercules/hercules_in.sas";
+SYMBOLGEN:  Macro variable SYSMODE resolves to prod
+NOTE: %INCLUDE (level 1) file /hercprod/prg/hercules/hercules_in.sas is file /hercprod/prg/hercules/hercules_in.sas.
+827       +/*HEADER------------------------------------------------------------------------
+828       +|
+829       +| PROGRAM:  hercules_in.sas
+830       +|
+831       +| LOCATION: /PRG/sas&sysmode.1/hercules
+832       +|
+833       +| PURPOSE:  To define a standard environment and common parameters for Hercules
+834       +|           Communication Engine programs.
+835       +|
+836       +|           Including:
+837       +|           1) Parse &SYSPARM to get INITIATIVE_ID and PHASE_SEQ_NB
+838       +|           2) Query HERCULES setup tables, and resolve macro parameters for the
+839       +|              initiative. There are:
+840       +|              SYSMODE
+841       +|              PROGRAM_ID,          TASK_ID,            EXT_DRUG_LIST_IN,
+842       +|              DFLT_INCLSN_IN,      DOCUMENT_LOC_CD,    PRT_CPNT_PARM_IN,
+843       +|              PRESCRIBER_PARM_IN,  TRGT_RECIPIENT_CD,  DSPLY_CLT_SETUP_CD,
+844       +|              DRG_DEFINITION_CD,   Email_USR,          EMAIL_IT,
+845       +|              PRG_DIR,             DATA_DIR,           RPT_DIR,   LOG_DIR,
+846       +|              TITLE_TX,            HERCULES ,          INITIATIVE_ID,
+847       +|              DESTINATION_CD       FTP_HOST,           FTP_USER,
+848       +|              FTP_PASS,            CLAIM_HIS_TBL,      TABLE_PREFIX  DB2_TMP,
+849       +|              LETTER_TYPE_QY_CD    OVRD_CLT_SETUP_IN
+850       +|           3) Define system mode and global directory and libname.
+851       +|           4) Define destination (macro string) for file release including,
+852       +|              pending files, final files and email.
+853       +|
+854       +|
+855       +| INPUT:    Parameters:  SYSPARM INITIATIVE_ID, PHASE_SEQ_NB, MODE.
+856       +|           data source: TINITIATIVE,      TPROGRAM,          TCMCTN_PROGRAM,
+857       +|                        TPROGRAM_TASK,    TPHASE_RVR_FILE,   TCMCTN_ENGINE_CD,
+15                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+858       +|                        ADM_LKP.ANALYTICS_USERS
+859       +|
+860       +| OUTPUT:   define HERCULES global macro parameters and setup the environment.
+861       +|
+862       +| USAGE:    The program will be called at the begining of the program level
+863       +|           parameter file using %include. The SYSPARM must be available either
+864       +|           through the nightly scheduling program or by specifying with OPTIONS:
+865       +|           e.g. OPTIONS SYSPARM='408 1', where 408 is the initiative_id and
+866       +|           1 is the phase_seq_nb.
+867       +|           The initiative_id specified must be a valid initiative_id and available
+868       +|           TINITIATIVE table.
+869       +|
+870       +| RS - 11/2007 - User's autoexec.sas must be contain the following
+871       +| statement for each SAS environment.  This will cause SAS to look for MACROS in
+872       +| Hercules macro library first.
+873       +|%ADD_TO_MACROS_PATH(NEW_MACRO_PATH=/PRG/sasXXXX1/hercules/macros,New_path_position=FRONT);
+874       +| where XXXX is the directory containing the code for that environment.
+875       ++--------------------------------------------------------------------------------
+876       +| HISTORY:  SEP, 2003 - J. Hou & Y. Vilk ORIGINAL
+877       +|           19MAR2004 - J.Chen - Commented out hard-coded %LET statement for
+878       +|                       sysmode
+879       +|           AUG 2004 - resolving DOCUMENT_LOC_CD from table TPROGRAM_TASK instead of
+880       +|                       TCMCTN_PROGRAM
+881       +|           Hercules Version  2.0.1
+882       +|           09NOV2007 - Ron Smith / Greg Dudley
+883       +|                       Modified to support ADT and QAT environments
+884       +|           07MAR2008 - N.WILLIAMS   - Hercules Version  2.0.01
+885       +|                                      1. Initial code migration into Dimensions
+886       +|                                         source safe control tool.
+887       +|                                      2. Added references new program path.
+888       +|Hercules Version  2.1.01
+889       +| 22AUG2008 - G. Dudley
+890       +|  1. Added the assignment of the macro variable DFL_CLT_INC_EXU_IN for new Client Setup
+891       +|  2. Added the assignment of the macro variable DSPLY_CLT_SETUP_CD for new Client Setup
+892       +|  3. Added assignment of Oracle Schema DSS_CLIN
+893       +| 21OCT2008 - SR
+894       +| 			-	Changed the assignment of macro variable ora_tmp from &user to dss_herc
+895       +|           - Hercules Version  2.1.2.01
+896       +|Hercules Version  2.1.3
+897       +| 15MAY2012 - P. Landis
+898       +|           - Modified to reference new hercdev2 server for testing procedures
+899       ++------------------------------------------------------------------------HEADER*/
+900       +
+901       +*%include "/herc&sysmode./prg/hercules/macros/set_sysmode.sas" / nosource2;
+902       +/*options mprint mprintnest mlogic mlogicnest symbolgen source2;*/
+903       +
+904       +
+905       +%MACRO HERCULES_IN;
+906       +
+907       +  %*SASDOC----------------------------------------------------------------------
+908       +  | Added GLOBAL variables for datasources.  Production variables will be set
+909       +  | based on environment program is running in.
+910       +  | 09NOV2007 - RS.
+911       +  +---------------------------------------------------------------------SASDOC*;
+912       +   *CCW4 - CC_RE_MIGR_IND ADDED;
+913       +
+914       +  %GLOBAL PROGRAM_ID        TASK_ID            	EXT_DRUG_LIST_IN
+915       +        DFLT_INCLSN_IN      DOCUMENT_LOC_CD    	PRT_CPNT_PARM_IN
+16                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+916       +        PRESCRIBER_PARM_IN  TRGT_RECIPIENT_CD  	DSPLY_CLT_SETUP_CD
+917       +        DRG_DEFINITION_CD   EMAIL_USR          	EMAIL_IT
+918       +        PRG_DIR             DATA_DIR           	RPT_DIR   LOG_DIR
+919       +        TITLE_TX            HERCULES           	INITIATIVE_ID
+920       +        DESTINATION_CD      FTP_HOST           	FTP_USER
+921       +        FTP_PASS            SYSMODE            	CLAIM_HIS_TBL
+922       +        TABLE_PREFIX        DB2_TMP            	LETTER_TYPE_QY_CD
+923       +        ADHOC_DIR           CLAIMSA            	OVRD_CLT_SETUP_IN
+924       +        DATA_CLEANSING_CD       				CC_RE_MIGR_IND
+925       +	    UDBSPRP				UDBDWP				SUMMARY
+926       +		UDBSPRP_DB          USER_UDBSPRP	   	PASSWORD_UDBSPRP
+927       +		UDBDWP_DB			USER_UDBDWP		   	PASSWORD_UDBDWP
+928       +		QL_ADJ				RX_ADJ				RE_ADJ
+929       +		ORA_TMP				USER_EDW			PASSWORD_EDW
+930       +		GOLD				DFL_CLT_INC_EXU_IN  DSS_CLIN
+931       +		DSPLY_CLT_SETUP_CD  EDW_FTP_HOST EDW_FTP_USER EDW_FTP_PASS
+932       +		DWHM DSS_HM GOLD_HA;
+933       +
+934       +  *** Assign Claim History Table name ***;
+935       +  %LET CLAIM_HIS_TBL=TRXCLM_BASE;
+936       +
+937       +  %*SASDOC----------------------------------------------------------------------
+938       +  | Determine the system mode based on the environment variable - $pwd
+939       +  | 09NOV2007 - RS - Note: set_sysmode now running from hercules lib in order
+940       +  | to support QAT environment
+941       +  +---------------------------------------------------------------------SASDOC*;
+942       +/*  %set_sysmode(mode=dev2);*/
+943       +
+944       +  /*--------------------------------------------------------------------------------------------------*/
+945       +  /* PRODUCTION ENVIRONMENT                                                                           */
+946       +  /*--------------------------------------------------------------------------------------------------*/
+947       +  %IF &SYSMODE=prod %THEN %DO; /* 07MAR2008 - N.WILLIAMS */
+948       +  	/*---------------- setup schemas ----------------*/
+949       +	%LET HERCULES=HERCULES;
+950       +	%LET QCPAP020=QCPAP020;
+951       +	%LET CLAIMSA=CLAIMSA;
+952       +	%LET CLAIMSP=CLAIMSP;
+953       +	%LET HERCULEP=HERCULEP;
+954       + 	%LET SUMMARY=SUMMARY;
+955       +  	
+956       +  	/*---------------- setup parametes for database LIBNAMES - Based on DATASOURCES */
+957       + 	/*---------------- ZEUS ----------------*/
+958       +	%LET UDBSPRP=&UDBSPRP;
+959       +	%LET UDBSPRP_DB=UDBSPRP;
+960       +	%LET USER_UDBSPRP=&USER_UDBSPRP;
+961       +	%LET PASSWORD_UDBSPRP=&PASSWORD_UDBSPRP;
+962       +	
+963       +  	/*---------------- CDW ----------------*/
+964       +	%LET UDBDWP=&UDBDWP;
+965       +	%LET UDBDWP_DB=UDBDWP;
+966       +	%LET USER_UDBDWP=&USER_UDBDWP;
+967       +	%LET PASSWORD_UDBDWP=&PASSWORD_UDBDWP;
+968       +	
+969       +  	/*---------------- EDW ----------------*/
+970       +	%LET DSS_CLIN=DSS_CLIN;
+971       +	%LET USER_EDW=&USER_GOLD;
+972       +	%LET PASSWORD_EDW=&PASSWORD_GOLD;
+973       +	%LET GOLD=GOLD user=&USER_EDW pw=&PASSWORD_EDW;
+17                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+974       +	%LET DSS_HM = DSS_HM;
+975       +	%LET DWHM = DWHM;
+976       +	
+977       +  	/*---------------- LIBNAME Definitions ----------------*/
+978       +	LIBNAME CLAIMSP  DB2 DSN=&UDBDWP  SCHEMA=&CLAIMSP  DEFER=YES;
+979       +	LIBNAME HERCULEP DB2 DSN=&UDBDWP  SCHEMA=&HERCULEP DEFER=YES;
+980       +	LIBNAME HERCULES DB2 DSN=&UDBSPRP SCHEMA=&HERCULES DEFER=YES;
+981       +	LIBNAME QCPAP020 DB2 DSN=&UDBSPRP SCHEMA=&QCPAP020 DEFER=YES;
+982       +	LIBNAME CLAIMSA  DB2 DSN=&UDBSPRP SCHEMA=&CLAIMSA  DEFER=YES;
+983       +	LIBNAME SUMMARY  DB2 DSN=&UDBSPRP SCHEMA=&SUMMARY  DEFER=YES;
+984       +	LIBNAME DSS_CLIN ORACLE SCHEMA=&DSS_CLIN PATH=&GOLD;
+985       +	
+986       +  	/*---------------- Health Alert Credentials ----------------*/	
+987       +	%LET GOLD_HA=GOLD %substr(&GOLD02., %index(&GOLD02., USER));	
+988       +	LIBNAME DSS_HM   ORACLE SCHEMA=&DSS_HM   PATH=&GOLD_HA DEFER=YES ;
+989       +	LIBNAME DWHM     ORACLE SCHEMA=&DWHM     PATH=&GOLD_HA DEFER=YES ;
+990       +
+991       +  %END;
+992       +  /*--------------------------------------------------------------------------------------------------*/
+993       +  /* QAT ENVIRONMENT                                                                                  */
+994       +  /*--------------------------------------------------------------------------------------------------*/
+995       +  %IF &SYSMODE=sit3 %THEN %DO;
+996       +  	/*---------------- setup schemas ----------------*/
+997       +	%LET HERCULES=HERCULES;
+998       +	%LET QCPAP020=QCPAP020;
+999       +	%LET CLAIMSA=CLAIMSA;
+1000      +	%LET CLAIMSP=CLAIMSP;
+1001      +	%LET HERCULEP=HERCULET; /* Test CDW */
+1002      +	%LET SUMMARY=SUMMARY;
+1003      +	
+1004      +  	/*---------------- setup parametes for database LIBNAMES - Based on DATASOURCES */
+1005      +  	/*---------------- ZEUS ----------------*/
+1006      +	%LET UDBSPRP=&ANARPTQA;
+1007      +	%LET UDBSPRP_DB=ANARPTQA;
+1008      +	%LET USER_UDBSPRP=&USER_ANARPTQA;
+1009      +	%LET PASSWORD_UDBSPRP=&PASSWORD_ANARPTQA;
+1010      +	
+1011      +  	/*---------------- CDW ----------------*/
+1012      +	%LET UDBDWP=&UDBDWT;
+1013      +	%LET UDBDWP_DB=UDBDWT;
+1014      +	%LET USER_UDBDWP=&USER_UDBDWT;
+1015      +	%LET PASSWORD_UDBDWP=&PASSWORD_UDBDWT;
+1016      +	
+1017      +  	/*---------------- EDW ----------------*/
+1018      +	%LET DSS_CLIN=DSS_CLIN;
+1019      +	%LET USER_EDW=&USER_GOLD;
+1020      +	%LET PASSWORD_EDW=&PASSWORD_GOLD;
+1021      +	%LET GOLD=GOLD user=&USER_EDW pw=&PASSWORD_EDW;
+1022      +	%LET DSS_HM = DSS_HM;
+1023      +	%LET DWHM = DWHM;
+1024      +	
+1025      +  	/*---------------- LIBNAME Definitions ----------------*/
+1026      +	LIBNAME CLAIMSP  DB2 DSN=&UDBDWP  SCHEMA=&CLAIMSP  DEFER=YES;
+1027      +	LIBNAME HERCULEP DB2 DSN=&UDBDWP  SCHEMA=&HERCULEP DEFER=YES;
+1028      +	LIBNAME HERCULES DB2 DSN=&UDBSPRP SCHEMA=&HERCULES DEFER=YES;
+1029      +	LIBNAME QCPAP020 DB2 DSN=&UDBSPRP SCHEMA=&QCPAP020 DEFER=YES;
+1030      +	LIBNAME CLAIMSA  DB2 DSN=&UDBSPRP SCHEMA=&CLAIMSA  DEFER=YES;
+1031      +	LIBNAME SUMMARY  DB2 DSN=&UDBSPRP SCHEMA=&SUMMARY  DEFER=YES;
+18                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+1032      +	LIBNAME DSS_CLIN ORACLE SCHEMA=&DSS_CLIN PATH=&GOLD;
+1033      +	
+1034      +  	/*---------------- Health Alert Credentials ----------------*/	
+1035      +	%let GOLD_HA=&OAK.;
+1036      +	LIBNAME DSS_HM   ORACLE SCHEMA=&DSS_HM   PATH=&GOLD_HA DEFER=YES ;
+1037      +	LIBNAME DWHM     ORACLE SCHEMA=&DWHM     PATH=&GOLD_HA DEFER=YES ;
+1038      +  %END;
+1039      +  /*--------------------------------------------------------------------------------------------------*/
+1040      +  /* TEST ENVIRONMENT                                                                                 */
+1041      +  /*--------------------------------------------------------------------------------------------------*/
+1042      +  %IF &SYSMODE=dev2 or &SYSMODE=sit2  %THEN %DO;
+1043      +  	/*---------------- setup schemas ----------------*/
+1044      +	%LET HERCULES=HERCULES;
+1045      +	%LET QCPAP020=QCPAP020;
+1046      +	%LET CLAIMSA=CLAIMSA;
+1047      +	%LET CLAIMSP=CLAIMSP;
+1048      +	%LET HERCULEP=HERCULEP;
+1049      + 	%LET SUMMARY=SUMMARY;
+1050      +  	
+1051      +  	/*---------------- setup parametes for database LIBNAMES - Based on DATASOURCES */
+1052      + 	/*---------------- ZEUS ----------------*/
+1053      +/*	%LET UDBSPRP=&UDBSPRP;*/
+1054      +/*	%LET UDBSPRP_DB=UDBSPRP;*/
+1055      +	%LET UDBSPRP=&ANARPTAD;
+1056      +	%LET UDBSPRP_DB=ANARPTAD;
+1057      +	%LET USER_UDBSPRP=&USER_UDBSPRP;
+1058      +	%LET PASSWORD_UDBSPRP=&PASSWORD_UDBSPRP;
+1059      +	
+1060      +  	/*---------------- CDW ----------------*/
+1061      +	%LET UDBDWP=&UDBDWP;
+1062      +	%LET UDBDWP_DB=UDBDWP;
+1063      +	%LET USER_UDBDWP=&USER_UDBDWP;
+1064      +	%LET PASSWORD_UDBDWP=&PASSWORD_UDBDWP;
+1065      +	
+1066      +  	/*---------------- EDW ----------------*/
+1067      +	%LET DSS_CLIN=DSS_CLIN;
+1068      +	%LET USER_EDW=&USER_GOLD;
+1069      +	%LET PASSWORD_EDW=&PASSWORD_GOLD;
+1070      +	%LET GOLD=GOLD user=&USER_EDW pw=&PASSWORD_EDW;
+1071      +	%LET DSS_HM = DSS_HM;
+1072      +	%LET DWHM = DWHM;
+1073      +	
+1074      +  	/*---------------- LIBNAME Definitions ----------------*/
+1075      +	LIBNAME CLAIMSP  DB2 DSN=&UDBDWP  SCHEMA=&CLAIMSP  DEFER=YES;
+1076      +	LIBNAME HERCULEP DB2 DSN=&UDBDWP  SCHEMA=&HERCULEP DEFER=YES;
+1077      +	LIBNAME HERCULES DB2 DSN=&UDBSPRP SCHEMA=&HERCULES DEFER=YES;
+1078      +	LIBNAME QCPAP020 DB2 DSN=&UDBSPRP SCHEMA=&QCPAP020 DEFER=YES;
+1079      +	LIBNAME CLAIMSA  DB2 DSN=&UDBSPRP SCHEMA=&CLAIMSA  DEFER=YES;
+1080      +	LIBNAME SUMMARY  DB2 DSN=&UDBSPRP SCHEMA=&SUMMARY  DEFER=YES;
+1081      +	LIBNAME DSS_CLIN ORACLE SCHEMA=&DSS_CLIN PATH=&GOLD;
+1082      +	
+1083      +  	/*---------------- Health Alert Credentials ----------------*/	
+1084      +	%LET GOLD_HA=GOLD %substr(&GOLD02., %index(&GOLD02., USER));	
+1085      +	LIBNAME DSS_HM   ORACLE SCHEMA=&DSS_HM   PATH=&GOLD_HA DEFER=YES ;
+1086      +	LIBNAME DWHM     ORACLE SCHEMA=&DWHM     PATH=&GOLD_HA DEFER=YES ;
+1087      +  %END;
+1088      +
+1089      +
+19                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+1090      +  %PUT NOTE: USER_EDW = &USER_EDW;
+1091      +  %PUT NOTE: PASSWORD_EDW = &PASSWORD_EDW;
+1092      +  %PUT NOTE: GOLD = &GOLD;
+1093      +  %PUT NOTE: GOLD_HA = &GOLD_HA;
+1094      +
+1095      +  LIBNAME AUX_TAB "/herc&sysmode/data/hercules/auxtables";
+1096      +  LIBNAME ADM_LKP "/herc&sysmode/data/Admin/auxtable";
+1097      +
+1098      +
+1099      +  %GETPARMS;
+1100      +
+1101      +  %IF %LENGTH(&INITIATIVE_ID)=0 %THEN %DO;
+1102      +    %PUT WARNING: INITIATIVE_ID IS NOT SUPPLIED.;
+1103      +    %GOTO EXIT;
+1104      +  %END;
+1105      +
+1106      +  %*SASDOC----------------------------------------------------------------------
+1107      +  | To start an initiative, an INITIATIVE_id will be given, the code needs to
+1108      +  | resolve the associated PROGRAM_ID, TASK_ID, PHASE_SEQ_NB based on the setup
+1109      +  | of TINITIATIVE and TINITIATIVE_PHASE tables.
+1110      +  +---------------------------------------------------------------------SASDOC*;
+1111      +  PROC SQL NOPRINT;
+1112      +    CREATE   TABLE HERC_PARMS  AS
+1113      +    SELECT   A.PROGRAM_ID,
+1114      +             A.TASK_ID,
+1115      +             '%nrbquote('||trim(left(A.TITLE_TX))||")" as title_tx,
+1116      +             A.TRGT_RECIPIENT_CD,
+1117      +             A.EXT_DRUG_LIST_IN,
+1118      +             A.OVRD_CLT_SETUP_IN,
+1119      +             B.DFLT_INCLSN_IN,
+1120      +             C.DATA_CLEANSING_CD,
+1121      +             C.DESTINATION_CD,
+1122      +             D.DOCUMENT_LOC_CD,
+1123      +             D.PRTCPNT_PARM_IN,
+1124      +             D.PRESCRIBER_PARM_IN,
+1125      +             D.DSPLY_CLT_SETUP_CD,
+1126      +             D.DRG_DEFINITION_CD,
+1127      +             D.LETTER_TYPE_QY_CD,
+1128      +			 D.DFL_CLT_INC_EXU_IN,
+1129      +			 D.DSPLY_CLT_SETUP_CD
+1130      +
+1131      +    FROM     &HERCULES..TINITIATIVE A,
+1132      +             &CLAIMSA..TPROGRAM B,
+1133      +             &HERCULES..TCMCTN_PROGRAM C,
+1134      +             &HERCULES..TPROGRAM_TASK D
+1135      +
+1136      +    WHERE    A.INITIATIVE_ID = &INITIATIVE_ID  AND
+1137      +             A.PROGRAM_ID = B.PROGRAM_ID       AND
+1138      +             A.PROGRAM_ID = C.PROGRAM_ID       AND
+1139      +             A.PROGRAM_ID = D.PROGRAM_ID       AND
+1140      +             A.TASK_ID = D.TASK_ID;
+1141      +
+1142      +    SELECT COUNT(*) INTO :INIT_CNT
+1143      +    FROM HERC_PARMS;
+1144      +  QUIT;
+1145      +
+1146      +  %IF &INIT_CNT=0 %THEN %DO;
+1147      +    %put;
+20                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+1148      +	%put;
+1149      +    %PUT WARNING: INITIATIVE_ID &initiative_id CAN NOT BE RESOLVED FROM RELEVENT TABLES.;
+1150      +    %PUT WARNING: Please correct the initiative_id or specify your own global setup.;
+1151      +	%put;
+1152      +	%put;
+1153      +  %end;
+1154      +
+1155      +  %IF &INIT_CNT=0 %THEN %GOTO EXIT;
+1156      +
+1157      +  %LET TABLE_PREFIX=T_%CMPRES(&INITIATIVE_ID)_%CMPRES(&PHASE_SEQ_NB);
+1158      +
+1159      +  DATA _NULL_;
+1160      +    SET HERC_PARMS;
+1161      +    CALL SYMPUT('PROGRAM_ID', COMPRESS(PUT(PROGRAM_ID, 4.)));
+1162      +    CALL SYMPUT('TASK_ID', COMPRESS(PUT(TASK_ID, 4.)));
+1163      +    CALL SYMPUT('TITLE_TX', TRIM(LEFT(TITLE_TX)));
+1164      +    CALL SYMPUT('TRGT_RECIPIENT_CD', PUT(TRGT_RECIPIENT_CD,1.));
+1165      +    CALL SYMPUT('EXT_DRUG_LIST_IN', PUT(EXT_DRUG_LIST_IN,1.));
+1166      +    CALL SYMPUT('OVRD_CLT_SETUP_IN', PUT(OVRD_CLT_SETUP_IN,1.));
+1167      +    CALL SYMPUT('DFLT_INCLSN_IN', PUT(DFLT_INCLSN_IN,1.));
+1168      +    CALL SYMPUT('DESTINATION_CD', PUT(DESTINATION_CD,1.));
+1169      +    CALL SYMPUT('DATA_CLEANSING_CD', PUT(DATA_CLEANSING_CD,1.));
+1170      +    CALL SYMPUT('DOCUMENT_LOC_CD', COMPRESS(PUT(DOCUMENT_LOC_CD,4.)));
+1171      +    CALL SYMPUT('PRTCPNT_PARM_IN', PUT(PRTCPNT_PARM_IN,1.));
+1172      +    CALL SYMPUT('PRESCRIBER_PARM_IN', PUT(PRESCRIBER_PARM_IN,1.));
+1173      +    CALL SYMPUT('DSPLY_CLT_SETUP_CD', PUT(DSPLY_CLT_SETUP_CD,1.));
+1174      +    CALL SYMPUT('DRG_DEFINITION_CD', PUT(DRG_DEFINITION_CD,1.));
+1175      +    CALL SYMPUT('LETTER_TYPE_QY_CD', PUT(LETTER_TYPE_QY_CD,1.));
+1176      +  	CALL SYMPUT('DFL_CLT_INC_EXU_IN', PUT(DFL_CLT_INC_EXU_IN,1.));
+1177      +  	CALL SYMPUT('DSPLY_CLT_SETUP_CD', PUT(DSPLY_CLT_SETUP_CD,1.));
+1178      +  RUN;
+1179      +
+1180      +  PROC TRANSPOSE DATA=HERC_PARMS(DROP=PROGRAM_ID TASK_ID)
+1181      +                  OUT=TRNS_PARMS(DROP=_LABEL_)
+1182      +                 NAME=CODE_NAME
+1183      +               PREFIX=CODE;
+1184      +  RUN;
+1185      +
+1186      +  PROC SQL NOPRINT;
+1187      +    CREATE TABLE CMCTN_CD_DECODE AS
+1188      +    SELECT C.CODE_NAME, C.CODE1, LONG_TX AS ENGIN_DECODE
+1189      +    FROM   (SELECT A.*, B.*
+1190      +            FROM   &HERCULES..TCMCTN_ENGINE_CD A,
+1191      +                   &HERCULES..TCODE_COLUMN_XREF B
+1192      +            WHERE  A.CMCTN_ENGN_TYPE_CD=B.CMCTN_ENGN_TYPE_CD) AS AB
+1193      +    RIGHT JOIN TRNS_PARMS C
+1194      +    ON    AB.COLUMN_NM=C.CODE_NAME AND
+1195      +          AB.CMCTN_ENGINE_CD=C.CODE1;
+1196      +  QUIT;
+1197      +
+1198      +  DATA _NULL_;
+1199      +    SET CMCTN_CD_DECODE END=ENDFILE;
+1200      +    IF ENGIN_DECODE= '' THEN DO;
+1201      +      IF CODE1=1 THEN ENGIN_DECODE='APPLICABLE';
+1202      +      ELSE IF CODE1=0 THEN ENGIN_DECODE='n/a';
+1203      +    END;
+1204      +    IF _N_=1 THEN DO;
+1205      +      PUT "NOTE:";
+21                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+1206      +      PUT @7 "PARAMETER SUMMARY FOR INITIATIVE &INITIATIVE_ID - &TITLE_TX (PROGRAM %cmpres(&PROGRAM_ID))";
+1207      +      PUT @7 55*'_';
+1208      +      PUT ' ';
+1209      +      PUT @7 'CODE_NAME' @28 'CODE' @35 'ENGIN_DECODE';
+1210      +      PUT @7 10*'-' @28 5*'-' @35 14*'-';
+1211      +    END;
+1212      +    PUT @7 CODE_NAME $20. @28 CODE1 3. @35 ENGIN_DECODE $35.;
+1213      +    IF ENDFILE THEN DO;
+1214      +      PUT @7 55*'_';
+1215      +      PUT 'NOTE:';
+1216      +      PUT ' ';
+1217      +    END;
+1218      +  RUN;
+1219      +
+1220      +  proc sql;
+1221      +      drop table CMCTN_CD_DECODE;
+1222      +      drop table herc_parms;
+1223      +      drop table trns_parms;
+1224      +  quit;
+1225      +
+1226      +
+1227      +  %*SASDOC----------------------------------------------------------------------
+1228      +  | Define program level libname and fileref for data and file input/output.
+1229      +  +----------------------------------------------------------------------SASDOC*;
+1230      +  %IF %lowcase(&SYSMODE)=prod %THEN %DO;
+1231      +  %LET DB2_TMP=TMP&PROGRAM_ID; /* 07MAR2008 - N.WILLIAMS */
+1232      +/*	%LET ORA_TMP=&USER;*/
+1233      +    %LET ORA_TMP=DSS_HERC; /** SR 21OCT2008 **/
+1234      +  %END;
+1235      +  %ELSE %DO;
+1236      +	%LET DB2_TMP=TMP&PROGRAM_ID;
+1237      +/*	%LET ORA_TMP=&USER;*/
+1238      +    %LET ORA_TMP=DSS_HERC; /** SR 21OCT2008 **/
+1239      +  %END;
+1240      +
+1241      +
+1242      +  LIBNAME &DB2_TMP DB2 DSN=&UDBSPRP SCHEMA=&DB2_TMP DEFER=YES;
+1243      +  LIBNAME &ORA_TMP ORACLE SCHEMA=&ORA_TMP PATH=&GOLD;
+1244      +  %put *** folder assignments ***;
+1245      +  %put *** folder assignments ***;
+1246      +  %put *** folder assignments ***;
+1247      +  %LET ADHOC_DIR=/herc&sysmode/adhoc/hercules;
+1248      +  %LET PRG_DIR=/herc&sysmode/prg/hercules/%CMPRES(&PROGRAM_ID);
+1249      +  %LET DATA_DIR=/herc&sysmode/data/hercules/%CMPRES(&PROGRAM_ID);
+1250      +  %LET RPT_DIR=/herc&sysmode/report_doc/hercules/%CMPRES(&PROGRAM_ID);
+1251      +  %LET LOG_DIR=/herc&sysmode/data/hercules/%CMPRES(&PROGRAM_ID)/logs;
+1252      +
+1253      + %chk_dir(&ADHOC_DIR.);
+1254      + %chk_dir(&RPT_DIR.);
+1255      + %chk_dir(&PRG_DIR.);
+1256      + %chk_dir(&LOG_DIR.);
+1257      + %chk_dir(&DATA_DIR./pending);
+1258      + %chk_dir(&DATA_DIR./results);
+1259      + %chk_dir(&DATA_DIR./archive);
+1260      +
+1261      +  FILENAME PROG "&PRG_DIR.";
+1262      +  FILENAME RPT "&RPT_DIR.";
+1263      +  LIBNAME DATA_PND "&DATA_DIR/pending";
+22                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+1264      +  LIBNAME DATA_RES "&DATA_DIR/results";
+1265      +  LIBNAME DATA_ARC "&DATA_DIR/archive";
+1266      +  %*SASDOC----------------------------------------------------------------------
+1267      +  | Create general email receipient list.
+1268      +  +----------------------------------------------------------------------SASDOC*;
+1269      +  PROC SQL NOPRINT;
+1270      +    %IF %LENGTH(&INITIATIVE_ID)>0 %THEN %DO;
+1271      +      SELECT HSU_USR_ID INTO: HSU_USR_ID
+1272      +        FROM &HERCULES..TINITIATIVE_PHASE
+1273      +       WHERE INITIATIVE_ID=(&INITIATIVE_ID);
+1274      +
+1275      +      SELECT QUOTE(TRIM(EMAIL)) INTO :EMAIL_USR SEPARATED BY ' '
+1276      +        FROM ADM_LKP.ANALYTICS_USERS
+1277      +       WHERE UPCASE(QCP_ID) IN ("%UPCASE(&HSU_USR_ID)");
+1278      +    %END;
+1279      +    %ELSE %PUT %NRSTR(WARNING: &HSU_USR_ID and &EMAIL_USR cannot be resolved without an INITIATIVE_ID.);
+1280      +
+1281      +    SELECT QUOTE(TRIM(EMAIL)) INTO :EMAIL_IT SEPARATED BY ' '
+1282      +      FROM ADM_LKP.ANALYTICS_USERS
+1283      +     WHERE UPCASE(QCP_ID) = "&USER";
+1284      +    QUIT;
+1285      +
+1286      +
+1287      +  %*SASDOC----------------------------------------------------------------------
+1288      +  | define file output FTP destinations
+1289      +  +----------------------------------------------------------------------SASDOC*;
+1290      +  DATA _NULL_;
+1291      +    SET AUX_TAB.SET_FTP(WHERE=(DESTINATION_CD=&DESTINATION_CD));
+1292      +    CALL SYMPUT('FTP_HOST', TRIM(LEFT(FTP_HOST)) );
+1293      +    CALL SYMPUT('FTP_USER', TRIM(LEFT(FTP_USER)) );
+1294      +    CALL SYMPUT('FTP_PASS', TRIM(LEFT(FTP_PASS)) );
+1295      +  RUN;
+1296      +
+1297      +  %*SASDOC----------------------------------------------------------------------
+1298      +  | define EDW FTP destinations
+1299      +  +----------------------------------------------------------------------SASDOC*;
+1300      +  DATA _NULL_;
+1301      +    SET AUX_TAB.SET_FTP(WHERE=(DESTINATION_ROOT_DIR=upcase("&SYSMODE")
+1302      +                           and DESTINATION_CD in (98,99)));
+1303      +    CALL SYMPUT('EDW_FTP_HOST', TRIM(LEFT(FTP_HOST)) );
+1304      +    CALL SYMPUT('EDW_FTP_USER', TRIM(LEFT(FTP_USER)) );
+1305      +    CALL SYMPUT('EDW_FTP_PASS', TRIM(LEFT(FTP_PASS)) );
+1306      +  RUN;
+1307      +
+1308      +  %put NOTE: EDW_FTP_HOST = &EDW_FTP_HOST. ;
+1309      +  %put NOTE: EDW_FTP_USER = &EDW_FTP_USER. ;
+1310      +  %put NOTE: EDW_FTP_PASS = &EDW_FTP_PASS. ;
+1311      +
+1312      +  %*SASDOC----------------------------------------------------------------------
+1313      +  | definition of Health Alert credentials
+1314      +  +----------------------------------------------------------------------SASDOC*;
+1315      +  %put NOTE: GOLD_HA = &GOLD_HA. ;
+1316      +
+1317      +PROC SQL NOPRINT;
+1318      +  CREATE TABLE PLATFORMS AS
+1319      +  SELECT ADJ_ENGINE_CD
+1320      +    FROM &HERCULES..TINIT_ADJUD_ENGINE
+1321      +   WHERE INITIATIVE_ID=&INITIATIVE_ID;
+23                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+1322      +QUIT;
+1323      +
+1324      +PROC SORT DATA = PLATFORMS;BY ADJ_ENGINE_CD;
+1325      +RUN;
+1326      +
+1327      +%LET ADJ_ENGINE_CD1 = 0;
+1328      +%LET ADJ_ENGINE_CD2 = 0;
+1329      +%LET ADJ_ENGINE_CD3 = 0;
+1330      +
+1331      +DATA _NULL_;
+1332      + SET PLATFORMS END = EOF;
+1333      +  BY ADJ_ENGINE_CD;
+1334      +  IF FIRST.ADJ_ENGINE_CD THEN DO;
+1335      +  FLAG+1;
+1336      +  CALL SYMPUT('ADJ_ENGINE_CD'||PUT(ADJ_ENGINE_CD,8. -L),ADJ_ENGINE_CD);
+1337      +  END;
+1338      +  IF EOF THEN CALL SYMPUT('TOT',PUT(ADJ_ENGINE_CD,8. -L));
+1339      +RUN;
+1340      +
+1341      +  %IF &ADJ_ENGINE_CD1 EQ 1 %THEN %LET QL_ADJ = 1; %ELSE %LET QL_ADJ = 0;
+1342      +    %IF &ADJ_ENGINE_CD2 EQ 2 %THEN %LET RX_ADJ = 1 ; %ELSE %LET RX_ADJ = 0;
+1343      +		%IF &ADJ_ENGINE_CD3 EQ 3 %THEN %LET RE_ADJ = 1 ; %ELSE %LET RE_ADJ = 0;
+1344      +
+1345      +%PUT NOTE:	QL_ADJ = &QL_ADJ;
+1346      +%PUT NOTE:	RX_ADJ = &RX_ADJ;
+1347      +%PUT NOTE:	RE_ADJ = &RE_ADJ;
+1348      +
+1349      +%PUT NOTE:	ADJ_ENGINE_CD1 = &ADJ_ENGINE_CD1;
+1350      +%PUT NOTE:	ADJ_ENGINE_CD2 = &ADJ_ENGINE_CD2;
+1351      +%PUT NOTE:	ADJ_ENGINE_CD3 = &ADJ_ENGINE_CD3;
+1352      +
+1353      +  %EXIT:;
+1354      +
+1355      +%MEND HERCULES_IN;
+1356      +
+1357      +%HERCULES_IN;
+MLOGIC(HERCULES_IN):  Beginning execution.
+MPRINT(HERCULES_IN):   *CCW4 - CC_RE_MIGR_IND ADDED;
+MLOGIC(HERCULES_IN):  %GLOBAL  PROGRAM_ID        TASK_ID             EXT_DRUG_LIST_IN         DFLT_INCLSN_IN      DOCUMENT_LOC_CD   
+        PRT_CPNT_PARM_IN         PRESCRIBER_PARM_IN  TRGT_RECIPIENT_CD   DSPLY_CLT_SETUP_CD         DRG_DEFINITION_CD   EMAIL_USR   
+              EMAIL_IT         PRG_DIR             DATA_DIR            RPT_DIR   LOG_DIR         TITLE_TX            HERCULES       
+           INITIATIVE_ID         DESTINATION_CD      FTP_HOST            FTP_USER         FTP_PASS            SYSMODE             
+      CLAIM_HIS_TBL         TABLE_PREFIX        DB2_TMP             LETTER_TYPE_QY_CD         ADHOC_DIR           CLAIMSA           
+        OVRD_CLT_SETUP_IN         DATA_CLEANSING_CD           CC_RE_MIGR_IND      UDBSPRP    UDBDWP    SUMMARY   UDBSPRP_DB         
+       USER_UDBSPRP     PASSWORD_UDBSPRP   UDBDWP_DB   USER_UDBDWP      PASSWORD_UDBDWP   QL_ADJ    RX_ADJ    RE_ADJ   ORA_TMP    
+      USER_EDW   PASSWORD_EDW   GOLD    DFL_CLT_INC_EXU_IN  DSS_CLIN   DSPLY_CLT_SETUP_CD  EDW_FTP_HOST EDW_FTP_USER EDW_FTP_PASS   
+       DWHM DSS_HM GOLD_HA
+MPRINT(HERCULES_IN):   *** Assign Claim History Table name ***;
+MLOGIC(HERCULES_IN):  %LET (variable name is CLAIM_HIS_TBL)
+SYMBOLGEN:  Macro variable SYSMODE resolves to prod
+MLOGIC(HERCULES_IN):  %IF condition &SYSMODE=prod is TRUE
+MLOGIC(HERCULES_IN):  %LET (variable name is HERCULES)
+MLOGIC(HERCULES_IN):  %LET (variable name is QCPAP020)
+MLOGIC(HERCULES_IN):  %LET (variable name is CLAIMSA)
+MLOGIC(HERCULES_IN):  %LET (variable name is CLAIMSP)
+MLOGIC(HERCULES_IN):  %LET (variable name is HERCULEP)
+MLOGIC(HERCULES_IN):  %LET (variable name is SUMMARY)
+MLOGIC(HERCULES_IN):  %LET (variable name is UDBSPRP)
+24                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+SYMBOLGEN:  Macro variable UDBSPRP resolves to UDBSPRP USER=qcpap020 PASSWORD=anlt2web
+MLOGIC(HERCULES_IN):  %LET (variable name is UDBSPRP_DB)
+MLOGIC(HERCULES_IN):  %LET (variable name is USER_UDBSPRP)
+SYMBOLGEN:  Macro variable USER_UDBSPRP resolves to qcpap020
+MLOGIC(HERCULES_IN):  %LET (variable name is PASSWORD_UDBSPRP)
+SYMBOLGEN:  Macro variable PASSWORD_UDBSPRP resolves to anlt2web
+MLOGIC(HERCULES_IN):  %LET (variable name is UDBDWP)
+SYMBOLGEN:  Macro variable UDBDWP resolves to UDBDWP USER=sasadm PASSWORD=_n_l_t_c
+MLOGIC(HERCULES_IN):  %LET (variable name is UDBDWP_DB)
+MLOGIC(HERCULES_IN):  %LET (variable name is USER_UDBDWP)
+SYMBOLGEN:  Macro variable USER_UDBDWP resolves to sasadm
+MLOGIC(HERCULES_IN):  %LET (variable name is PASSWORD_UDBDWP)
+SYMBOLGEN:  Macro variable PASSWORD_UDBDWP resolves to _n_l_t_c
+MLOGIC(HERCULES_IN):  %LET (variable name is DSS_CLIN)
+MLOGIC(HERCULES_IN):  %LET (variable name is USER_EDW)
+SYMBOLGEN:  Macro variable USER_GOLD resolves to dss_herc
+MLOGIC(HERCULES_IN):  %LET (variable name is PASSWORD_EDW)
+SYMBOLGEN:  Macro variable PASSWORD_GOLD resolves to anlt2web
+MLOGIC(HERCULES_IN):  %LET (variable name is GOLD)
+SYMBOLGEN:  Macro variable USER_EDW resolves to dss_herc
+SYMBOLGEN:  Macro variable PASSWORD_EDW resolves to anlt2web
+MLOGIC(HERCULES_IN):  %LET (variable name is DSS_HM)
+MLOGIC(HERCULES_IN):  %LET (variable name is DWHM)
+SYMBOLGEN:  Macro variable UDBDWP resolves to UDBDWP USER=sasadm PASSWORD=_n_l_t_c
+SYMBOLGEN:  Macro variable CLAIMSP resolves to CLAIMSP
+MPRINT(HERCULES_IN):   LIBNAME CLAIMSP DB2 DSN=UDBDWP USER=sasadm PASSWORD=_n_l_t_c SCHEMA=CLAIMSP DEFER=YES;
+NOTE: Libref CLAIMSP was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBDWP
+SYMBOLGEN:  Macro variable UDBDWP resolves to UDBDWP USER=sasadm PASSWORD=_n_l_t_c
+SYMBOLGEN:  Macro variable HERCULEP resolves to HERCULEP
+MPRINT(HERCULES_IN):   LIBNAME HERCULEP DB2 DSN=UDBDWP USER=sasadm PASSWORD=_n_l_t_c SCHEMA=HERCULEP DEFER=YES;
+NOTE: Libref HERCULEP was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBDWP
+SYMBOLGEN:  Macro variable UDBSPRP resolves to UDBSPRP USER=qcpap020 PASSWORD=anlt2web
+SYMBOLGEN:  Macro variable HERCULES resolves to HERCULES
+MPRINT(HERCULES_IN):   LIBNAME HERCULES DB2 DSN=UDBSPRP USER=qcpap020 PASSWORD=anlt2web SCHEMA=HERCULES DEFER=YES;
+NOTE: Libref HERCULES was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+SYMBOLGEN:  Macro variable UDBSPRP resolves to UDBSPRP USER=qcpap020 PASSWORD=anlt2web
+SYMBOLGEN:  Macro variable QCPAP020 resolves to QCPAP020
+MPRINT(HERCULES_IN):   LIBNAME QCPAP020 DB2 DSN=UDBSPRP USER=qcpap020 PASSWORD=anlt2web SCHEMA=QCPAP020 DEFER=YES;
+NOTE: Libref QCPAP020 was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+SYMBOLGEN:  Macro variable UDBSPRP resolves to UDBSPRP USER=qcpap020 PASSWORD=anlt2web
+SYMBOLGEN:  Macro variable CLAIMSA resolves to CLAIMSA
+MPRINT(HERCULES_IN):   LIBNAME CLAIMSA DB2 DSN=UDBSPRP USER=qcpap020 PASSWORD=anlt2web SCHEMA=CLAIMSA DEFER=YES;
+NOTE: Libref CLAIMSA was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+SYMBOLGEN:  Macro variable UDBSPRP resolves to UDBSPRP USER=qcpap020 PASSWORD=anlt2web
+SYMBOLGEN:  Macro variable SUMMARY resolves to SUMMARY
+MPRINT(HERCULES_IN):   LIBNAME SUMMARY DB2 DSN=UDBSPRP USER=qcpap020 PASSWORD=anlt2web SCHEMA=SUMMARY DEFER=YES;
+NOTE: Libref SUMMARY was successfully assigned as follows: 
+      Engine:        DB2 
+25                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+      Physical Name: UDBSPRP
+SYMBOLGEN:  Macro variable DSS_CLIN resolves to DSS_CLIN
+SYMBOLGEN:  Macro variable GOLD resolves to GOLD user=dss_herc pw=anlt2web
+MPRINT(HERCULES_IN):   LIBNAME DSS_CLIN ORACLE SCHEMA=DSS_CLIN PATH=GOLD user=dss_herc pw=anlt2web;
+NOTE: Libref DSS_CLIN was successfully assigned as follows: 
+      Engine:        ORACLE 
+      Physical Name: GOLD
+MLOGIC(HERCULES_IN):  %LET (variable name is GOLD_HA)
+SYMBOLGEN:  Macro variable GOLD02 resolves to GOLD02 USER=qcpap020 PASSWORD=happy123
+SYMBOLGEN:  Macro variable GOLD02 resolves to GOLD02 USER=qcpap020 PASSWORD=happy123
+SYMBOLGEN:  Macro variable DSS_HM resolves to DSS_HM
+SYMBOLGEN:  Macro variable GOLD_HA resolves to GOLD USER=qcpap020 PASSWORD=happy123
+MPRINT(HERCULES_IN):   LIBNAME DSS_HM ORACLE SCHEMA=DSS_HM PATH=GOLD USER=qcpap020 PASSWORD=happy123 DEFER=YES ;
+NOTE: Libref DSS_HM was successfully assigned as follows: 
+      Engine:        ORACLE 
+      Physical Name: GOLD
+SYMBOLGEN:  Macro variable DWHM resolves to DWHM
+SYMBOLGEN:  Macro variable GOLD_HA resolves to GOLD USER=qcpap020 PASSWORD=happy123
+MPRINT(HERCULES_IN):   LIBNAME DWHM ORACLE SCHEMA=DWHM PATH=GOLD USER=qcpap020 PASSWORD=happy123 DEFER=YES ;
+NOTE: Libref DWHM was successfully assigned as follows: 
+      Engine:        ORACLE 
+      Physical Name: GOLD
+SYMBOLGEN:  Macro variable SYSMODE resolves to prod
+MLOGIC(HERCULES_IN):  %IF condition &SYSMODE=sit3 is FALSE
+SYMBOLGEN:  Macro variable SYSMODE resolves to prod
+SYMBOLGEN:  Macro variable SYSMODE resolves to prod
+MLOGIC(HERCULES_IN):  %IF condition &SYSMODE=dev2 or &SYSMODE=sit2 is FALSE
+MLOGIC(HERCULES_IN):  %PUT NOTE: USER_EDW = &USER_EDW
+SYMBOLGEN:  Macro variable USER_EDW resolves to dss_herc
+NOTE: USER_EDW = dss_herc
+MLOGIC(HERCULES_IN):  %PUT NOTE: PASSWORD_EDW = &PASSWORD_EDW
+SYMBOLGEN:  Macro variable PASSWORD_EDW resolves to anlt2web
+NOTE: PASSWORD_EDW = anlt2web
+MLOGIC(HERCULES_IN):  %PUT NOTE: GOLD = &GOLD
+SYMBOLGEN:  Macro variable GOLD resolves to GOLD user=dss_herc pw=anlt2web
+NOTE: GOLD = GOLD user=dss_herc pw=anlt2web
+MLOGIC(HERCULES_IN):  %PUT NOTE: GOLD_HA = &GOLD_HA
+SYMBOLGEN:  Macro variable GOLD_HA resolves to GOLD USER=qcpap020 PASSWORD=happy123
+NOTE: GOLD_HA = GOLD USER=qcpap020 PASSWORD=happy123
+SYMBOLGEN:  Macro variable SYSMODE resolves to prod
+MPRINT(HERCULES_IN):   LIBNAME AUX_TAB "/hercprod/data/hercules/auxtables";
+NOTE: Libref AUX_TAB was successfully assigned as follows: 
+      Engine:        V9 
+      Physical Name: /hercprod/data/hercules/auxtables
+SYMBOLGEN:  Macro variable SYSMODE resolves to prod
+MPRINT(HERCULES_IN):   LIBNAME ADM_LKP "/hercprod/data/Admin/auxtable";
+NOTE: Libref ADM_LKP was successfully assigned as follows: 
+      Engine:        V9 
+      Physical Name: /hercprod/data/Admin/auxtable
+MLOGIC(HERCULES_IN.GETPARMS):  Beginning execution.
+MLOGIC(HERCULES_IN.GETPARMS):  This macro was compiled from the autocall file /hercprod/prg/hercules/macros/getparms.sas
+MLOGIC(HERCULES_IN.GETPARMS):  %LOCAL  DSID VAREXIST RC PARMS PARM DLM PFILE MVAR MVAL _I
+MLOGIC(HERCULES_IN.GETPARMS):  %LET (variable name is DSID)
+MLOGIC(HERCULES_IN.GETPARMS):  %LET (variable name is VAREXIST)
+SYMBOLGEN:  Macro variable DSID resolves to 1
+MLOGIC(HERCULES_IN.GETPARMS):  %LET (variable name is RC)
+SYMBOLGEN:  Macro variable DSID resolves to 1
+SYMBOLGEN:  Macro variable VAREXIST resolves to 1
+26                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+SYMBOLGEN:  Macro variable SYSPARM resolves to 
+MLOGIC(HERCULES_IN.GETPARMS):  %IF condition &VAREXIST=1 AND %BQUOTE(&SYSPARM)^= is FALSE
+MLOGIC(HERCULES_IN.GETPARMS):  %PUT NOTE: (GETPARMS): Macro variable SYSPARM contains no parameters.
+NOTE: (GETPARMS): Macro variable SYSPARM contains no parameters.
+MLOGIC(HERCULES_IN.GETPARMS):  Ending execution.
+MPRINT(HERCULES_IN):  ;
+SYMBOLGEN:  Macro variable INITIATIVE_ID resolves to 
+MLOGIC(HERCULES_IN):  %IF condition %LENGTH(&INITIATIVE_ID)=0 is TRUE
+MLOGIC(HERCULES_IN):  %PUT WARNING: INITIATIVE_ID IS NOT SUPPLIED.
+WARNING: INITIATIVE_ID IS NOT SUPPLIED.
+MLOGIC(HERCULES_IN):  %GOTO EXIT (label resolves to EXIT).
+MPRINT(HERCULES_IN):  ;
+MLOGIC(HERCULES_IN):  Ending execution.
+1358      +
+NOTE: %INCLUDE (level 1) ending.
+SYMBOLGEN:  Macro variable HERCULES resolves to HERCULES
+1359       libname &HERCULES DB2
+SYMBOLGEN:  Macro variable UDBSPRP resolves to UDBSPRP USER=qcpap020 PASSWORD=anlt2web
+SYMBOLGEN:  Macro variable HERCULES resolves to HERCULES
+1359     !                       dsn=&UDBSPRP schema=&HERCULES defer=YES;
+NOTE: Libref HERCULES was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+1360       %let JOB_QUE=JOB_QUE;
+1361       %let JOB_QUE_SCHEMA=JOB_QUE_%upcase(&SYSMODE);
+SYMBOLGEN:  Macro variable SYSMODE resolves to prod
+1362       /*%let JOB_QUE_SCHEMA=JOB_QUE_TEST;*/
+SYMBOLGEN:  Macro variable JOB_QUE resolves to JOB_QUE
+1363       libname &JOB_QUE DB2
+SYMBOLGEN:  Macro variable UDBSPRP resolves to UDBSPRP USER=qcpap020 PASSWORD=anlt2web
+SYMBOLGEN:  Macro variable JOB_QUE_SCHEMA resolves to JOB_QUE_PROD
+1363     !                      dsn=&UDBSPRP schema=&JOB_QUE_SCHEMA defer=YES ;
+NOTE: Libref JOB_QUE was successfully assigned as follows: 
+      Engine:        DB2 
+      Physical Name: UDBSPRP
+1364       libname saslib "/herc&sysmode./data/hercules/gen_utilities/job_queue";
+SYMBOLGEN:  Macro variable SYSMODE resolves to prod
+NOTE: Libref SASLIB was successfully assigned as follows: 
+      Engine:        V9 
+      Physical Name: /hercprod/data/hercules/gen_utilities/job_queue
+1365       
+1366       %GETTASKS;
+MLOGIC(GETTASKS):  Beginning execution.
+MLOGIC(GETTASKS):  %LOCAL  DSID        VAREXIST        RC        NEWOBS        DELOBS     SCHEDOBS     MESSAGE_FOR_GETTASKS
+MLOGIC(GETTASKS):  %LET (variable name is ERR_FL)
+MLOGIC(GETTASKS):  %LET (variable name is JOB_SCHED_VAR)
+MLOGIC(GETTASKS):  %LET (variable name is NUMB_MONTHS_KEEP)
+MLOGIC(GETTASKS):  %LET (variable name is DELOBS)
+MLOGIC(GETTASKS):  %LET (variable name is SCHEDOBS)
+MLOGIC(GETTASKS):  %LET (variable name is Q_SCRIPT)
+MLOGIC(GETTASKS.LOWCASE):  Beginning execution.
+MLOGIC(GETTASKS.LOWCASE):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/lowcase.sas
+SYMBOLGEN:  Macro variable SYSMODE resolves to prod
+MLOGIC(GETTASKS.LOWCASE):  Parameter STRING has value prod
+SYMBOLGEN:  Macro variable STRING resolves to prod
+MLOGIC(GETTASKS.LOWCASE):  Ending execution.
+SYMBOLGEN:  Macro variable SYSMODE resolves to prod
+MPRINT(GETTASKS):   LIBNAME ADM_LKP "/hercprod/data/Admin/auxtable";
+27                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+NOTE: Libref ADM_LKP was successfully assigned as follows: 
+      Engine:        V9 
+      Physical Name: /hercprod/data/Admin/auxtable
+MPRINT(GETTASKS):   PROC SQL NOPRINT;
+SYMBOLGEN:  Macro variable USER resolves to QCPAP020
+MPRINT(GETTASKS):   SELECT QUOTE(TRIM(EMAIL)) INTO :EMAIL_IT SEPARATED BY ' ' FROM ADM_LKP.ANALYTICS_USERS WHERE UPCASE(QCP_ID) = 
+"QCPAP020";
+MPRINT(GETTASKS):   QUIT;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      user cpu time       0.01 seconds
+      system cpu time     0.00 seconds
+      Memory                            591k
+      Page Faults                       0
+      Page Reclaims                     321
+      Page Swaps                        0
+      Voluntary Context Switches        0
+      Involuntary Context Switches      0
+      Block Input Operations            0
+      Block Output Operations           0
+      
+
+MPRINT(GETTASKS):   DATA _NULL_;
+MPRINT(GETTASKS):   DATE_C=PUT(TODAY(),DOWNAME3.) || PUT(HOUR(TIME()),z2.) || PUT(MINUTE(TIME()),z2.);
+MPRINT(GETTASKS):   CALL SYMPUT('DATE_C',COMPRESS(DATE_C));
+MPRINT(GETTASKS):   RUN;
+
+NOTE: DATA statement used (Total process time):
+      real time           0.00 seconds
+      user cpu time       0.00 seconds
+      system cpu time     0.00 seconds
+      Memory                            396k
+      Page Faults                       0
+      Page Reclaims                     120
+      Page Swaps                        0
+      Voluntary Context Switches        0
+      Involuntary Context Switches      0
+      Block Input Operations            0
+      Block Output Operations           0
+      
+
+MLOGIC(GETTASKS):  %PUT DATE_C=&DATE_C
+SYMBOLGEN:  Macro variable DATE_C resolves to Sat1740
+DATE_C=Sat1740
+MPRINT(GETTASKS):   PROC SQL NOPRINT;
+MPRINT(GETTASKS):   DELETE FROM JOB_QUE.JOB_QUEUE WHERE PROGRAM_ID IN (999,998,997);
+NOTE: No rows were deleted from JOB_QUE.JOB_QUEUE.
+
+MPRINT(GETTASKS):   * QCPI208 - added 998 and 997;
+MPRINT(GETTASKS):   QUIT;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.39 seconds
+      user cpu time       0.04 seconds
+      system cpu time     0.02 seconds
+      Memory                            641k
+      Page Faults                       0
+      Page Reclaims                     630
+      Page Swaps                        0
+28                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+      Voluntary Context Switches        28
+      Involuntary Context Switches      7
+      Block Input Operations            0
+      Block Output Operations           0
+      
+
+MPRINT(GETTASKS):   OPTIONS MPRINT MPRINTNEST MLOGIC MLOGICNEST SYMBOLGEN SOURCE2;
+MLOGIC(GETTASKS.RESET_SQL_ERR_CD):  Beginning execution.
+MLOGIC(GETTASKS.RESET_SQL_ERR_CD):  This macro was compiled from the autocall file 
+      /hercprod/prg/hercules/macros/reset_sql_err_cd.sas
+MLOGIC(GETTASKS.RESET_SQL_ERR_CD):  %IF condition DEBUG_FLAG=N is FALSE
+SYMBOLGEN:  Macro variable SQLXRC resolves to 
+SYMBOLGEN:  Macro variable SQLXRC resolves to 
+SYMBOLGEN:  Macro variable SQLRC resolves to 0
+MLOGIC(GETTASKS.RESET_SQL_ERR_CD):  %IF condition (&SQLXRC NE 0 AND &SQLXRC GE -1) OR &SQLRC=4 is FALSE
+MPRINT(GETTASKS.RESET_SQL_ERR_CD):   OPTIONS NOTES;
+MLOGIC(GETTASKS.RESET_SQL_ERR_CD):  Ending execution.
+MPRINT(GETTASKS):  ;
+MPRINT(GETTASKS):   *QCPI208 - added HCS_USR_ID to the query for 998 and 997;
+MPRINT(GETTASKS):   PROC SQL ;
+SYMBOLGEN:  Macro variable UDBSPRP resolves to UDBSPRP USER=qcpap020 PASSWORD=anlt2web
+MPRINT(GETTASKS):   CONNECT TO DB2 AS DB2(DSN=UDBSPRP USER=qcpap020 PASSWORD=anlt2web);
+MPRINT(GETTASKS):   CREATE TABLE WORK.VSCHED_INITS AS select * from connection to db2 ( (SELECT INIT.INITIATIVE_ID , 
+JOBS.PHASE_SEQ_NB , INIT.PROGRAM_ID , INIT.TASK_ID , INIT.TITLE_TX , JOBS.JOB_SCHEDULED_TS , JOBS.JOB_START_TS , 
+JOBS.JOB_COMPLETE_TS , TASK.PROGRAM_TASK_TX , TASK.QUEUE_NB as ORG_QUEUE_NB , TASK.QUEUE_NB as QUEUE_NB, TASK.QUEUE_NB as 
+PARMTR_ID1, TASK.QUEUE_NB as PARMTR_ID2, JOBS.HSC_USR_ID as HSC_USR_ID FROM HERCULES.TINITIATIVE_PHASE JOBS , HERCULES.TINITIATIVE 
+INIT , HERCULES.TPROGRAM_TASK TASK WHERE JOBS.JOB_SCHEDULED_TS IS NOT NULL AND JOBS.JOB_SCHEDULED_TS <= CURRENT TIMESTAMP AND 
+JOBS.JOB_START_TS IS NULL AND JOBS.JOB_COMPLETE_TS IS NULL AND JOBS.INITIATIVE_ID = INIT.INITIATIVE_ID AND INIT.PROGRAM_ID = 
+TASK.PROGRAM_ID AND INIT.TASK_ID = TASK.TASK_ID) UNION (SELECT REQ.REQUEST_ID AS INITIATIVE_ID , 1 AS PHASE_SEQ_NB , REQ.REPORT_ID 
+AS PROGRAM_ID , REQ.REPORT_ID AS TASK_ID , RPT.RPT_DISPLAY_NM AS TITLE_TX , REQ.JOB_REQUESTED_TS AS JOB_SCHEDULED_TS , 
+REQ.JOB_START_TS , REQ.JOB_COMPLETE_TS , RPT.SAS_PROGRAM_TX AS PROGRAM_TASK_TX , RPT.QUEUE_NB AS ORG_QUEUE_NB , RPT.QUEUE_NB AS 
+QUEUE_NB, REQ.REQUIRED_PARMTR_ID AS PARMTR_ID1, REQ.SEC_REQD_PARMTR_ID AS PARMTR_ID2, REQ.HSC_USR_ID AS HSC_USR_ID FROM 
+HERCULES.TREPORT RPT, HERCULES.TREPORT_REQUEST REQ WHERE RPT.REPORT_ID=REQ.REPORT_ID AND REQ.JOB_REQUESTED_TS IS NOT NULL AND 
+REQ.JOB_REQUESTED_TS <= CURRENT TIMESTAMP AND REQ.JOB_START_TS IS NULL AND REQ.JOB_COMPLETE_TS IS NULL ) );
+NOTE: Compressing data set WORK.VSCHED_INITS increased size by 100.00 percent. 
+      Compressed is 2 pages; un-compressed would require 1 pages.
+NOTE: Table WORK.VSCHED_INITS created, with 9 rows and 14 columns.
+
+MPRINT(GETTASKS):   DISCONNECT FROM DB2;
+MLOGIC(GETTASKS):  %PUT &SQLXRC &SQLXMSG
+SYMBOLGEN:  Macro variable SQLXRC resolves to 0
+SYMBOLGEN:  Macro variable SQLXMSG resolves to  
+0
+MPRINT(GETTASKS):   QUIT;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.29 seconds
+      user cpu time       0.02 seconds
+      system cpu time     0.00 seconds
+      Memory                            707k
+      Page Faults                       0
+      Page Reclaims                     380
+      Page Swaps                        0
+      Voluntary Context Switches        23
+      Involuntary Context Switches      0
+      Block Input Operations            0
+      Block Output Operations           0
+      
+
+29                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Beginning execution.
+MLOGIC(GETTASKS.SET_ERROR_FL2):  This macro was compiled from the autocall file /hercprod/prg/hercules/macros/set_error_fl2.sas
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter ERR_FL_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SYSERR_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SQLRC_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SQLXRC_L has value 
+MPRINT(GETTASKS.SET_ERROR_FL2):   OPTIONS NONOTES;
+SYMBOLGEN:  Macro variable ERR_FL_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &err_fl_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is ERR_FL_L)
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+SYMBOLGEN:  Macro variable SYSERR_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &syserr_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SYSERR_L)
+SYMBOLGEN:  Macro variable SYSERR resolves to 0
+SYMBOLGEN:  Macro variable SQLRC_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &sqlrc_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SQLRC_L)
+SYMBOLGEN:  Macro variable SQLRC resolves to 0
+SYMBOLGEN:  Macro variable SQLXRC_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &sqlxrc_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SQLXRC_L)
+SYMBOLGEN:  Macro variable SQLXRC resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   DATA _NULL_;
+MPRINT(GETTASKS.SET_ERROR_FL2):   LENGTH err_fl err_fl_l syserr sqlrc sqlxrc 8;
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl="0";
+SYMBOLGEN:  Macro variable ERR_FL_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl_l="0";
+SYMBOLGEN:  Macro variable SYSERR_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   syserr="0";
+SYMBOLGEN:  Macro variable SQLRC_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   sqlrc="0";
+SYMBOLGEN:  Macro variable SQLXRC_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   sqlxrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if sqlrc="4" then sqlrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if sqlxrc="4" then sqlxrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if syserr="4" then syserr="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   IF getoption('obs')=0 THEN err_fl=1;
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl=MAX(0,ABS(err_fl),ABS(err_fl_l), ABS(syserr), ABS(sqlrc),ABS(sqlxrc));
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl=(err_fl >= 1);
+MPRINT(GETTASKS.SET_ERROR_FL2):   CALL SYMPUT('err_fl',TRIM(LEFT(err_fl)));
+MPRINT(GETTASKS.SET_ERROR_FL2):   RUN;
+MPRINT(GETTASKS.SET_ERROR_FL2):   OPTIONS NOTES;
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %PUT 'err_fl'=&err_fl
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+'err_fl'=0
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Ending execution.
+MPRINT(GETTASKS):  ;
+MPRINT(GETTASKS):   * QCPI208 - added HCS_USR_ID to the query for 998 and 997;
+MPRINT(GETTASKS):   PROC SQL NOPRINT;
+MPRINT(GETTASKS):   CREATE TABLE WORK.SCHED_TASKS AS SELECT JOBS.INITIATIVE_ID ,JOBS.PHASE_SEQ_NB ,JOBS.JOB_SCHEDULED_TS 
+,JOBS.PROGRAM_ID ,JOBS.TASK_ID ,JOBS.TITLE_TX ,JOBS.JOB_START_TS ,JOBS.JOB_COMPLETE_TS ,JOBS.PROGRAM_TASK_TX ,JOBS.QUEUE_NB as 
+ORG_QUEUE_NB ,JOBS.QUEUE_NB as QUEUE_NB ,JOBS.PARMTR_ID1 ,JOBS.PARMTR_ID2 ,JOBS.HSC_USR_ID FROM WORK.VSCHED_INITS JOBS WHERE 
+JOBS.JOB_START_TS IS MISSING AND JOBS.JOB_COMPLETE_TS IS MISSING ;
+NOTE: Compressing data set WORK.SCHED_TASKS increased size by 100.00 percent. 
+      Compressed is 2 pages; un-compressed would require 1 pages.
+NOTE: Table WORK.SCHED_TASKS created, with 9 rows and 14 columns.
+30                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+
+MPRINT(GETTASKS):   QUIT;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      user cpu time       0.01 seconds
+      system cpu time     0.00 seconds
+      Memory                            787k
+      Page Faults                       0
+      Page Reclaims                     348
+      Page Swaps                        0
+      Voluntary Context Switches        2
+      Involuntary Context Switches      1
+      Block Input Operations            0
+      Block Output Operations           0
+      
+
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Beginning execution.
+MLOGIC(GETTASKS.SET_ERROR_FL2):  This macro was compiled from the autocall file /hercprod/prg/hercules/macros/set_error_fl2.sas
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter ERR_FL_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SYSERR_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SQLRC_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SQLXRC_L has value 
+MPRINT(GETTASKS.SET_ERROR_FL2):   OPTIONS NONOTES;
+SYMBOLGEN:  Macro variable ERR_FL_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &err_fl_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is ERR_FL_L)
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+SYMBOLGEN:  Macro variable SYSERR_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &syserr_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SYSERR_L)
+SYMBOLGEN:  Macro variable SYSERR resolves to 0
+SYMBOLGEN:  Macro variable SQLRC_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &sqlrc_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SQLRC_L)
+SYMBOLGEN:  Macro variable SQLRC resolves to 0
+SYMBOLGEN:  Macro variable SQLXRC_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &sqlxrc_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SQLXRC_L)
+SYMBOLGEN:  Macro variable SQLXRC resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   DATA _NULL_;
+MPRINT(GETTASKS.SET_ERROR_FL2):   LENGTH err_fl err_fl_l syserr sqlrc sqlxrc 8;
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl="0";
+SYMBOLGEN:  Macro variable ERR_FL_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl_l="0";
+SYMBOLGEN:  Macro variable SYSERR_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   syserr="0";
+SYMBOLGEN:  Macro variable SQLRC_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   sqlrc="0";
+SYMBOLGEN:  Macro variable SQLXRC_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   sqlxrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if sqlrc="4" then sqlrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if sqlxrc="4" then sqlxrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if syserr="4" then syserr="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   IF getoption('obs')=0 THEN err_fl=1;
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl=MAX(0,ABS(err_fl),ABS(err_fl_l), ABS(syserr), ABS(sqlrc),ABS(sqlxrc));
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl=(err_fl >= 1);
+MPRINT(GETTASKS.SET_ERROR_FL2):   CALL SYMPUT('err_fl',TRIM(LEFT(err_fl)));
+31                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+MPRINT(GETTASKS.SET_ERROR_FL2):   RUN;
+MPRINT(GETTASKS.SET_ERROR_FL2):   OPTIONS NOTES;
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %PUT 'err_fl'=&err_fl
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+'err_fl'=0
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Ending execution.
+MPRINT(GETTASKS):  ;
+MPRINT(GETTASKS):   proc sql noprint;
+MPRINT(GETTASKS):   create table WORK.SCHED_TASKS_NOT_QUEUED as select * from WORK.SCHED_TASKS SCHED where not exists (select * 
+from JOB_QUE.JOB_QUEUE JOBQ where SCHED.INITIATIVE_ID = JOBQ.INITIATIVE_ID and SCHED.PHASE_SEQ_NB = JOBQ.PHASE_SEQ_NB and 
+SCHED.JOB_SCHEDULED_TS = JOBQ.JOB_SCHEDULED_TS AND JOBQ.DELETED_IN=0 );
+NOTE: Compressing data set WORK.SCHED_TASKS_NOT_QUEUED increased size by 100.00 percent. 
+      Compressed is 2 pages; un-compressed would require 1 pages.
+NOTE: Table WORK.SCHED_TASKS_NOT_QUEUED created, with 3 rows and 14 columns.
+
+MPRINT(GETTASKS):   QUIT;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.21 seconds
+      user cpu time       0.02 seconds
+      system cpu time     0.01 seconds
+      Memory                            1091k
+      Page Faults                       0
+      Page Reclaims                     447
+      Page Swaps                        0
+      Voluntary Context Switches        62
+      Involuntary Context Switches      9
+      Block Input Operations            0
+      Block Output Operations           0
+      
+
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Beginning execution.
+MLOGIC(GETTASKS.SET_ERROR_FL2):  This macro was compiled from the autocall file /hercprod/prg/hercules/macros/set_error_fl2.sas
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter ERR_FL_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SYSERR_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SQLRC_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SQLXRC_L has value 
+MPRINT(GETTASKS.SET_ERROR_FL2):   OPTIONS NONOTES;
+SYMBOLGEN:  Macro variable ERR_FL_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &err_fl_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is ERR_FL_L)
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+SYMBOLGEN:  Macro variable SYSERR_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &syserr_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SYSERR_L)
+SYMBOLGEN:  Macro variable SYSERR resolves to 0
+SYMBOLGEN:  Macro variable SQLRC_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &sqlrc_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SQLRC_L)
+SYMBOLGEN:  Macro variable SQLRC resolves to 0
+SYMBOLGEN:  Macro variable SQLXRC_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &sqlxrc_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SQLXRC_L)
+SYMBOLGEN:  Macro variable SQLXRC resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   DATA _NULL_;
+MPRINT(GETTASKS.SET_ERROR_FL2):   LENGTH err_fl err_fl_l syserr sqlrc sqlxrc 8;
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl="0";
+SYMBOLGEN:  Macro variable ERR_FL_L resolves to 0
+32                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl_l="0";
+SYMBOLGEN:  Macro variable SYSERR_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   syserr="0";
+SYMBOLGEN:  Macro variable SQLRC_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   sqlrc="0";
+SYMBOLGEN:  Macro variable SQLXRC_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   sqlxrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if sqlrc="4" then sqlrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if sqlxrc="4" then sqlxrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if syserr="4" then syserr="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   IF getoption('obs')=0 THEN err_fl=1;
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl=MAX(0,ABS(err_fl),ABS(err_fl_l), ABS(syserr), ABS(sqlrc),ABS(sqlxrc));
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl=(err_fl >= 1);
+MPRINT(GETTASKS.SET_ERROR_FL2):   CALL SYMPUT('err_fl',TRIM(LEFT(err_fl)));
+MPRINT(GETTASKS.SET_ERROR_FL2):   RUN;
+MPRINT(GETTASKS.SET_ERROR_FL2):   OPTIONS NOTES;
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %PUT 'err_fl'=&err_fl
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+'err_fl'=0
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Ending execution.
+MPRINT(GETTASKS):  ;
+MPRINT(GETTASKS):   PROC SQL NOPRINT;
+MPRINT(GETTASKS):   CREATE TABLE WORK.QUEUED_TASKS_NOT_SCHED AS SELECT * FROM JOB_QUE.JOB_QUEUE JOBQ WHERE NOT EXISTS (SELECT * 
+FROM WORK.SCHED_TASKS SCHED WHERE SCHED.INITIATIVE_ID = JOBQ.INITIATIVE_ID AND SCHED.PHASE_SEQ_NB = JOBQ.PHASE_SEQ_NB AND 
+SCHED.JOB_SCHEDULED_TS = JOBQ.JOB_SCHEDULED_TS ) AND JOBQ.DELETED_IN=0 ;
+NOTE: Table WORK.QUEUED_TASKS_NOT_SCHED created, with 0 rows and 21 columns.
+
+MPRINT(GETTASKS):   SELECT COUNT(*) INTO :DELOBS FROM WORK.QUEUED_TASKS_NOT_SCHED;
+MPRINT(GETTASKS):   QUIT;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.02 seconds
+      user cpu time       0.00 seconds
+      system cpu time     0.01 seconds
+      Memory                            1142k
+      Page Faults                       0
+      Page Reclaims                     466
+      Page Swaps                        0
+      Voluntary Context Switches        14
+      Involuntary Context Switches      7
+      Block Input Operations            0
+      Block Output Operations           0
+      
+
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Beginning execution.
+MLOGIC(GETTASKS.SET_ERROR_FL2):  This macro was compiled from the autocall file /hercprod/prg/hercules/macros/set_error_fl2.sas
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter ERR_FL_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SYSERR_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SQLRC_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SQLXRC_L has value 
+MPRINT(GETTASKS.SET_ERROR_FL2):   OPTIONS NONOTES;
+SYMBOLGEN:  Macro variable ERR_FL_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &err_fl_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is ERR_FL_L)
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+SYMBOLGEN:  Macro variable SYSERR_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &syserr_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SYSERR_L)
+SYMBOLGEN:  Macro variable SYSERR resolves to 0
+33                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+SYMBOLGEN:  Macro variable SQLRC_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &sqlrc_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SQLRC_L)
+SYMBOLGEN:  Macro variable SQLRC resolves to 0
+SYMBOLGEN:  Macro variable SQLXRC_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &sqlxrc_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SQLXRC_L)
+SYMBOLGEN:  Macro variable SQLXRC resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   DATA _NULL_;
+MPRINT(GETTASKS.SET_ERROR_FL2):   LENGTH err_fl err_fl_l syserr sqlrc sqlxrc 8;
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl="0";
+SYMBOLGEN:  Macro variable ERR_FL_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl_l="0";
+SYMBOLGEN:  Macro variable SYSERR_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   syserr="0";
+SYMBOLGEN:  Macro variable SQLRC_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   sqlrc="0";
+SYMBOLGEN:  Macro variable SQLXRC_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   sqlxrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if sqlrc="4" then sqlrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if sqlxrc="4" then sqlxrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if syserr="4" then syserr="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   IF getoption('obs')=0 THEN err_fl=1;
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl=MAX(0,ABS(err_fl),ABS(err_fl_l), ABS(syserr), ABS(sqlrc),ABS(sqlxrc));
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl=(err_fl >= 1);
+MPRINT(GETTASKS.SET_ERROR_FL2):   CALL SYMPUT('err_fl',TRIM(LEFT(err_fl)));
+MPRINT(GETTASKS.SET_ERROR_FL2):   RUN;
+MPRINT(GETTASKS.SET_ERROR_FL2):   OPTIONS NOTES;
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %PUT 'err_fl'=&err_fl
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+'err_fl'=0
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Ending execution.
+MPRINT(GETTASKS):  ;
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+MLOGIC(GETTASKS):  %IF condition &err_fl=1 is FALSE
+SYMBOLGEN:  Macro variable DELOBS resolves to        0
+MLOGIC(GETTASKS):  %IF condition (&DELOBS gt 0) is FALSE
+MPRINT(GETTASKS):   PROC SQL NOPRINT;
+MPRINT(GETTASKS):   SELECT COUNT(*) INTO :SCHEDOBS FROM WORK.SCHED_TASKS_NOT_QUEUED WHERE PROGRAM_TASK_TX IS NOT NULL;
+MPRINT(GETTASKS):   QUIT;
+NOTE: PROCEDURE SQL used (Total process time):
+      real time           0.00 seconds
+      user cpu time       0.00 seconds
+      system cpu time     0.00 seconds
+      Memory                            576k
+      Page Faults                       0
+      Page Reclaims                     192
+      Page Swaps                        0
+      Voluntary Context Switches        0
+      Involuntary Context Switches      0
+      Block Input Operations            0
+      Block Output Operations           0
+      
+
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Beginning execution.
+MLOGIC(GETTASKS.SET_ERROR_FL2):  This macro was compiled from the autocall file /hercprod/prg/hercules/macros/set_error_fl2.sas
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter ERR_FL_L has value 
+34                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SYSERR_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SQLRC_L has value 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Parameter SQLXRC_L has value 
+MPRINT(GETTASKS.SET_ERROR_FL2):   OPTIONS NONOTES;
+SYMBOLGEN:  Macro variable ERR_FL_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &err_fl_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is ERR_FL_L)
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+SYMBOLGEN:  Macro variable SYSERR_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &syserr_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SYSERR_L)
+SYMBOLGEN:  Macro variable SYSERR resolves to 0
+SYMBOLGEN:  Macro variable SQLRC_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &sqlrc_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SQLRC_L)
+SYMBOLGEN:  Macro variable SQLRC resolves to 0
+SYMBOLGEN:  Macro variable SQLXRC_L resolves to 
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %IF condition &sqlxrc_l= is TRUE
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %LET (variable name is SQLXRC_L)
+SYMBOLGEN:  Macro variable SQLXRC resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   DATA _NULL_;
+MPRINT(GETTASKS.SET_ERROR_FL2):   LENGTH err_fl err_fl_l syserr sqlrc sqlxrc 8;
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl="0";
+SYMBOLGEN:  Macro variable ERR_FL_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl_l="0";
+SYMBOLGEN:  Macro variable SYSERR_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   syserr="0";
+SYMBOLGEN:  Macro variable SQLRC_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   sqlrc="0";
+SYMBOLGEN:  Macro variable SQLXRC_L resolves to 0
+MPRINT(GETTASKS.SET_ERROR_FL2):   sqlxrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if sqlrc="4" then sqlrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if sqlxrc="4" then sqlxrc="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   if syserr="4" then syserr="0";
+MPRINT(GETTASKS.SET_ERROR_FL2):   IF getoption('obs')=0 THEN err_fl=1;
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl=MAX(0,ABS(err_fl),ABS(err_fl_l), ABS(syserr), ABS(sqlrc),ABS(sqlxrc));
+MPRINT(GETTASKS.SET_ERROR_FL2):   err_fl=(err_fl >= 1);
+MPRINT(GETTASKS.SET_ERROR_FL2):   CALL SYMPUT('err_fl',TRIM(LEFT(err_fl)));
+MPRINT(GETTASKS.SET_ERROR_FL2):   RUN;
+MPRINT(GETTASKS.SET_ERROR_FL2):   OPTIONS NOTES;
+MLOGIC(GETTASKS.SET_ERROR_FL2):  %PUT 'err_fl'=&err_fl
+SYMBOLGEN:  Macro variable ERR_FL resolves to 0
+'err_fl'=0
+MLOGIC(GETTASKS.SET_ERROR_FL2):  Ending execution.
+MPRINT(GETTASKS):  ;
+MLOGIC(GETTASKS):  %PUT SCHED_JOBS=&SCHEDOBS
+SYMBOLGEN:  Macro variable SCHEDOBS resolves to        3
+SCHED_JOBS=       3
+SYMBOLGEN:  Macro variable SCHEDOBS resolves to        3
+MLOGIC(GETTASKS):  %IF condition (&SCHEDOBS.= 0) is FALSE
+SYMBOLGEN:  Macro variable SCHEDOBS resolves to        3
+MLOGIC(GETTASKS):  %IF condition (&SCHEDOBS.= 0) is FALSE
+MPRINT(GETTASKS):   PROC PRINTTO NEW LOG=
+MLOGIC(GETTASKS.LOWCASE):  Beginning execution.
+MLOGIC(GETTASKS.LOWCASE):  This macro was compiled from the autocall file /opt/sas/sas91/sasautos/lowcase.sas
+SYMBOLGEN:  Macro variable SYSMODE resolves to prod
+MLOGIC(GETTASKS.LOWCASE):  Parameter STRING has value prod
+35                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+SYMBOLGEN:  Macro variable STRING resolves to prod
+MLOGIC(GETTASKS.LOWCASE):  Ending execution.
+SYMBOLGEN:  Macro variable DATE_C resolves to Sat1740
+MPRINT(GETTASKS):  "/hercprod/data/hercules/gen_utilities/job_queue/logs/hercules_task_master.Sat1740saslog";
+MPRINT(GETTASKS):   RUN;
+
+47                                                         The SAS System                             17:40 Saturday, March 30, 2013
+
+ERROR: Errors printed on pages 38,46.
+
+NOTE: SAS Institute Inc., SAS Campus Drive, Cary, NC USA 27513-2414
+NOTE: The SAS System used:
+      real time           3.56 seconds
+      user cpu time       0.30 seconds
+      system cpu time     0.15 seconds
+      Memory                            7041k
+      Page Faults                       6
+      Page Reclaims                     25429
+      Page Swaps                        0
+      Voluntary Context Switches        495
+      Involuntary Context Switches      120
+      Block Input Operations            0
+      Block Output Operations           0
+      
